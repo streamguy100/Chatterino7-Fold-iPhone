@@ -1,750 +1,3 @@
-diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 40ebbad7e..f7e2b3224 100644
---- a/src/CMakeLists.txt
-+++ b/src/CMakeLists.txt
-@@ -759,6 +759,12 @@ set(SOURCE_FILES
-         widgets/OverlayWindow.hpp
-         widgets/PluginRepl.cpp
-         widgets/PluginRepl.hpp
-+        widgets/DevicePhone.cpp
-+        widgets/DevicePhone.hpp
-+        widgets/DevicePasscode.cpp
-+        widgets/DevicePasscode.hpp
-+        widgets/DeviceHomeScreen.cpp
-+        widgets/DeviceHomeScreen.hpp
-         widgets/Scrollbar.cpp
-         widgets/Scrollbar.hpp
-         widgets/TooltipEntryWidget.cpp
-@@ -933,6 +939,10 @@ set(SOURCE_FILES
-         widgets/settingspages/CommandPage.cpp
-         widgets/settingspages/CommandPage.hpp
-         widgets/settingspages/CustomWidgets.hpp
-+        widgets/settingspages/DeviceStylePage.cpp
-+        widgets/settingspages/DeviceStylePage.hpp
-+        widgets/settingspages/CodeScreenPage.cpp
-+        widgets/settingspages/CodeScreenPage.hpp
-         widgets/settingspages/ExternalToolsPage.cpp
-         widgets/settingspages/ExternalToolsPage.hpp
-         widgets/settingspages/FiltersPage.cpp
-diff --git a/src/messages/MessageFlag.hpp b/src/messages/MessageFlag.hpp
-index fee5998a6..c347d4bc5 100644
---- a/src/messages/MessageFlag.hpp
-+++ b/src/messages/MessageFlag.hpp
-@@ -82,6 +82,13 @@ enum class MessageFlag : std::int64_t {
-     UncategorizedNotification = (1LL << 45),
-     /// The message was detected as ASCII art and has its layout width limited to the default web chat width.
-     AsciiArt = (1LL << 46),
-+    /// Phone device styles only: this message was sent by the currently
-+    /// logged-in Twitch or Kick account, so its lines are right-aligned
-+    /// in the chat row. Layout-only: set on a *copy* of the message
-+    /// flags in MessageLayout::actuallyLayout, never written back to
-+    /// Message::flags, never persisted, never used for moderation,
-+    /// highlights, or protocol decisions.
-+    PhoneOwnMessage = (1LL << 47),
- };
- using MessageFlags = FlagsEnum<MessageFlag>;
- 
-diff --git a/src/messages/layouts/MessageLayout.cpp b/src/messages/layouts/MessageLayout.cpp
-index b753bd9e9..732f2ab76 100644
---- a/src/messages/layouts/MessageLayout.cpp
-+++ b/src/messages/layouts/MessageLayout.cpp
-@@ -5,7 +5,10 @@
- #include "messages/layouts/MessageLayout.hpp"
- 
- #include "Application.hpp"
-+#include "controllers/accounts/AccountController.hpp"
- #include "controllers/highlights/types/AutomodCaughtHighlight.hpp"
-+#include "providers/kick/KickAccount.hpp"
-+#include "providers/twitch/TwitchAccount.hpp"
- #include "messages/layouts/MessageLayoutContainer.hpp"
- #include "messages/layouts/MessageLayoutContext.hpp"
- #include "messages/layouts/MessageLayoutElement.hpp"
-@@ -21,6 +24,7 @@
- #include <QApplication>
- #include <QDebug>
- #include <QPainter>
-+#include <QPainterPath>
- #include <QtGlobal>
- #include <QThread>
- 
-@@ -37,6 +41,98 @@ QColor blendColors(const QColor &base, const QColor &apply)
-                    base.blueF() * (1 - alpha) + apply.blueF() * alpha);
-     return result;
- }
-+
-+// ---------------------------------------------------------------------------
-+// Phone device styles (Galaxy Fold / iPhone, style only).
-+// Used only when a phone device style is active (both built-in styles
-+// are phone styles). They never touch channels, protocols, moderation,
-+// or emote providers. The platform outline is purple for Twitch
-+// (145, 70, 255) and green for Kick (83, 252, 24).
-+// ---------------------------------------------------------------------------
-+
-+bool phoneStyleEnabled()
-+{
-+    // Both device styles are phone styles; deviceStyle only ever holds
-+    // "GalaxyFold" or "iPhone".
-+    return !getSettings()->deviceStyle.getValue().isEmpty();
-+}
-+
-+bool phoneIsFold()
-+{
-+    return getSettings()->deviceStyle.getValue() == "GalaxyFold";
-+}
-+
-+/// True when this message was sent by the currently logged-in account, on
-+/// either platform. Twitch and Kick accounts are checked independently, so
-+/// a user logged in as official_robust_clan on both is "own" on both.
-+/// Anonymous accounts never match: an empty login name is not own.
-+bool phoneIsOwnMessage(const Message &message)
-+{
-+    if (message.loginName.isEmpty())
-+    {
-+        return false;
-+    }
-+    auto *accounts = getApp()->getAccounts();
-+    if (accounts == nullptr)
-+    {
-+        return false;
-+    }
-+    if (auto twitch = accounts->twitch.getCurrent(); twitch != nullptr &&
-+        !twitch->isAnon() &&
-+        twitch->getUserName().compare(message.loginName,
-+                                      Qt::CaseInsensitive) == 0)
-+    {
-+        return true;
-+    }
-+    if (auto kick = accounts->kick.current(); kick != nullptr &&
-+        !kick->isAnonymous() &&
-+        kick->username().compare(message.loginName, Qt::CaseInsensitive) ==
-+            0)
-+    {
-+        return true;
-+    }
-+    return false;
-+}
-+
-+QString phoneDisplayName(const Message &message)
-+{
-+    return message.displayName.isEmpty() ? message.loginName
-+                                         : message.displayName;
-+}
-+
-+/// The single initial painted in the avatar circle for received messages.
-+/// Initials only: Qt chat rows carry no per-message profile photo.
-+QChar phoneAvatarInitial(const Message &message)
-+{
-+    const QString name = phoneDisplayName(message);
-+    return name.isEmpty() ? QChar('?') : name.at(0).toUpper();
-+}
-+
-+QColor phoneOutlineColor(const Message &message)
-+{
-+    return message.platform == MessagePlatform::Kick
-+               ? QColor(83, 252, 24)
-+               : QColor(145, 70, 255);
-+}
-+
-+/// Bubble fill for phone styles. Sent messages use the phone's message
-+/// blue (Samsung blue on Fold, iOS blue on iPhone); received messages
-+/// use the system grey for the current theme, inferred from the chat
-+/// text colour (dark text = light theme). Highlighted messages keep
-+/// their highlight colour as the fill instead; see updateBuffer.
-+QColor phoneBubbleFill(const QColor &textColor, bool isOwn, bool isFold)
-+{
-+    if (isOwn)
-+    {
-+        return isFold ? QColor("#0381fe") : QColor("#0a84ff");
-+    }
-+    const bool lightTheme = textColor.lightness() < 128;
-+    if (lightTheme)
-+    {
-+        return isFold ? QColor("#e8e8ed") : QColor("#e9e9eb");
-+    }
-+    return QColor("#2c2c2e");
-+}
- }  // namespace
- 
- MessageLayout::MessageLayout(MessagePtr message)
-@@ -137,6 +233,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
- 
-     auto messageFlags = this->message_->flags;
- 
-+    // Phone device styles (layout-only): mark own messages on this local
-+    // copy only, so MessageLayoutContainer can right-align their lines.
-+    // this->message_->flags itself is never modified here.
-+    if (phoneStyleEnabled() && phoneIsOwnMessage(*this->message_))
-+    {
-+        messageFlags.set(MessageFlag::PhoneOwnMessage);
-+    }
-+
-     if (this->flags.has(MessageLayoutFlag::Expanded) ||
-         (ctx.flags.has(MessageElementFlag::ModeratorTools) &&
-          !this->message_->flags.has(MessageFlag::Disabled)))
-@@ -155,6 +259,13 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
-     this->container_.beginLayout(ctx.width, this->scale_, this->imageScale_,
-                                  messageFlags);
- 
-+    // Phone styles: once per message, put the username (and any badges
-+    // before it) on its own line above the message text, so the name reads
-+    // as a label above the bubble instead of inline before the text.
-+    // Whisper rows carry two Username elements and still break after the
-+    // first one; that is a known, cosmetic edge case of this style.
-+    bool phoneUsernameLineBroken = false;
-+
-     for (const auto &element : this->message_->elements)
-     {
-         if (hideModerated && this->message_->flags.has(MessageFlag::Disabled))
-@@ -205,6 +316,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
-         }
- 
-         element->addToContainer(this->container_, ctx);
-+
-+        if (phoneStyleEnabled() && !phoneUsernameLineBroken &&
-+            element->getFlags().has(MessageElementFlag::Username) &&
-+            !this->message_->flags.has(MessageFlag::System))
-+        {
-+            this->container_.breakLine();
-+            phoneUsernameLineBroken = true;
-+        }
-     }
- 
-     if (this->height_ != this->container_.getHeight())
-@@ -390,7 +509,77 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
-         backgroundColor = QColor("#4A273D");
-     }
- 
--    painter.fillRect(buffer->rect(), backgroundColor);
-+    // Phone device styles (style only): paint the row as a rounded
-+    // bubble with a platform-coloured outline, instead of the normal
-+    // full-width row fill. Qt chat rows are full-width, so this is a
-+    // *row* bubble, not a content-tight phone bubble: long messages
-+    // still wrap at full row width, and own messages are right-aligned
-+    // per line by MessageLayoutContainer. System messages and messages
-+    // without a sender keep the normal background below. The bubble is
-+    // painted here, before the elements are painted on top of it, so the
-+    // avatar circle below must line up with the avatar indent added for
-+    // received lines in MessageLayoutContainer::breakLine.
-+    if (phoneStyleEnabled() && !this->message_->loginName.isEmpty() &&
-+        !this->message_->flags.has(MessageFlag::System))
-+    {
-+        painter.fillRect(buffer->rect(), backgroundColor);
-+
-+        const qreal s = this->scale_ > 0 ? this->scale_ : 1;
-+        const bool isOwn = phoneIsOwnMessage(*this->message_);
-+        const bool isFold = phoneIsFold();
-+        const QColor outline = phoneOutlineColor(*this->message_);
-+        QColor fill =
-+            phoneBubbleFill(ctx.messageColors.regularText, isOwn, isFold);
-+        if (this->message_->flags.has(MessageFlag::Highlighted) &&
-+            this->message_->highlightColor &&
-+            this->message_->highlightColor->isValid())
-+        {
-+            fill = *this->message_->highlightColor;
-+        }
-+
-+        painter.save();
-+        painter.setRenderHint(QPainter::Antialiasing, true);
-+        // Received bubbles start after the avatar circle (when avatars
-+        // are on), so the avatar sits outside the bubble; sent bubbles
-+        // use the normal inset on both sides.
-+        const bool showAvatar =
-+            !isOwn && getSettings()->phoneMessageShowAvatars.getValue();
-+        const qreal bubbleLeft = showAvatar ? 32 * s : 6 * s;
-+        const QRectF bubble(
-+            buffer->rect().left() + bubbleLeft, buffer->rect().top() + 2 * s,
-+            buffer->rect().width() - bubbleLeft - 6 * s,
-+            buffer->rect().height() - 4 * s);
-+        QPainterPath path;
-+        path.addRoundedRect(bubble, 14 * s, 14 * s);
-+        painter.setPen(QPen(outline, 2 * s));
-+        painter.setBrush(fill);
-+        painter.drawPath(path);
-+
-+        // Received messages only: sender initial in a small circle at the
-+        // left of the row, next to where the username line starts.
-+        if (showAvatar)
-+        {
-+            const qreal diameter = 24 * s;
-+            const QRectF avatar(buffer->rect().left() + 4 * s,
-+                                buffer->rect().top() + 4 * s, diameter,
-+                                diameter);
-+            painter.setPen(QPen(outline, 1 * s));
-+            painter.setBrush(outline);
-+            painter.drawEllipse(avatar);
-+            painter.setPen(ctx.messageColors.regularText);
-+            QFont font = painter.font();
-+            font.setBold(true);
-+            font.setPointSizeF(font.pointSizeF() * 0.9);
-+            painter.setFont(font);
-+            painter.drawText(avatar, Qt::AlignCenter,
-+                             QString(phoneAvatarInitial(*this->message_)));
-+        }
-+        painter.restore();
-+    }
-+    else
-+    {
-+        painter.fillRect(buffer->rect(), backgroundColor);
-+    }
- 
-     // draw message
-     this->container_.paintElements(painter, ctx);
-diff --git a/src/messages/layouts/MessageLayoutContainer.cpp b/src/messages/layouts/MessageLayoutContainer.cpp
-index 79fa5135a..d58ca142d 100644
---- a/src/messages/layouts/MessageLayoutContainer.cpp
-+++ b/src/messages/layouts/MessageLayoutContainer.cpp
-@@ -183,6 +183,34 @@ void MessageLayoutContainer::breakLine()
-                        .right()) /
-                   2;
-     }
-+    // Phone device styles (layout only, no protocol or data change):
-+    // - Own messages: right-align each line, like a sent phone message.
-+    //   This is the same arithmetic as Centered above, without the /2,
-+    //   and it relies on PhoneOwnMessage being set on the layout copy
-+    //   of the flags in MessageLayout::actuallyLayout, never on the
-+    //   message.
-+    // - Received messages: indent each line by the avatar circle width
-+    //   plus a gap, so the avatar painted in MessageLayout::updateBuffer
-+    //   sits to the left of the username and message text.
-+    // Both branches are skipped entirely when no phone style is active.
-+    else if (!getSettings()->deviceStyle.getValue().isEmpty() &&
-+             this->elements_.size() > 0)
-+    {
-+        if (this->flags_.has(MessageFlag::PhoneOwnMessage))
-+        {
-+            const int marginOffset = int(MARGIN.left() * this->scale_) +
-+                                     int(MARGIN.right() * this->scale_);
-+            xOffset = this->width_ - marginOffset -
-+                      this->elements_.at(this->elements_.size() - 1)
-+                          ->getRect()
-+                          .right();
-+        }
-+        else if (getSettings()->phoneMessageShowAvatars.getValue())
-+        {
-+            // 24px avatar circle + 8px gap, matching updateBuffer.
-+            xOffset = 32 * this->scale_;
-+        }
-+    }
- 
-     for (size_t i = this->lineStart_; i < this->elements_.size(); i++)
-     {
-diff --git a/src/singletons/Settings.hpp b/src/singletons/Settings.hpp
-index afb026620..df2b5771d 100644
---- a/src/singletons/Settings.hpp
-+++ b/src/singletons/Settings.hpp
-@@ -246,6 +246,12 @@ public:
-     FloatSetting twitchGifScale = {"/appearance/messages/twitchGifScale", 1.F};
-     BoolSetting separateMessages = {"/appearance/messages/separateMessages",
-                                     false};
-+    // Phone device styles (Galaxy Fold / iPhone, style only): reserve
-+    // space at the left of received messages and paint the sender's
-+    // initial in a small circle next to their name. Initials only:
-+    // Qt chat rows carry no per-message profile photo.
-+    BoolSetting phoneMessageShowAvatars = {
-+        "/appearance/messages/phoneMessageShowAvatars", true};
-     BoolSetting fadeMessageHistory = {"/appearance/messages/fadeMessageHistory",
-                                       true};
-     BoolSetting hideModerated = {"/appearance/messages/hideModerated", false};
-@@ -261,6 +267,25 @@ public:
- 
-     EnumSetting<NotebookTabLocation> tabDirection = {"/appearance/tabDirection",
-                                                      NotebookTabLocation::Top};
-+    // Phone device style (style only): "GalaxyFold" (default, Samsung
-+    // One UI) or "iPhone" (iOS Messages). Picked in Settings ->
-+    // Device Style; applyDeviceStyle() in widgets/DevicePhone.cpp
-+    // switches the theme, the tab bar and the bubbles with it.
-+    QStringSetting deviceStyle = {"/appearance/deviceStyle", "GalaxyFold"};
-+    // Code Screen (passcode lock, local only). Default OFF, so a fresh
-+    // install is never locked with an unknown code. The lock screen
-+    // only appears on launch when this is on AND a code has been set;
-+    // if no code was ever set there is no lock screen at all and the
-+    // app opens straight to chats. The code is stored locally in the
-+    // app settings on this PC - not real account security.
-+    BoolSetting codeScreenEnabled = {"/appearance/codeScreenEnabled",
-+                                     false};
-+    QStringSetting passcodeCode = {"/appearance/passcodeCode", ""};
-+    // The "no passcode yet" hint above the chats was dismissed for this
-+    // launch. Turning Code Screen off again or clearing the code resets
-+    // this, so the hint comes back.
-+    BoolSetting passcodeHintDismissed = {
-+        "/appearance/passcodeHintDismissed", false};
-     EnumSetting<NotebookTabVisibility> tabVisibility = {
-         "/appearance/tabVisibility",
-         NotebookTabVisibility::AllTabs,
-diff --git a/src/singletons/Theme.cpp b/src/singletons/Theme.cpp
-index 3e499b9f2..878a1f671 100644
---- a/src/singletons/Theme.cpp
-+++ b/src/singletons/Theme.cpp
-@@ -294,6 +294,24 @@ const std::vector<ThemeDescriptor> Theme::builtInThemes{
-         .path = ":/themes/Dark.json",
-         .name = "Dark",
-     },
-+    // Phone device styles. Inserted after Dark on purpose: fallbackTheme
-+    // is builtInThemes.at(2) (Dark), and inserting before it would
-+    // silently change the fallback.
-+    {
-+        .key = "GalaxyFold",
-+        .path = ":/themes/GalaxyFold.json",
-+        .name = "Galaxy Fold",
-+    },
-+    {
-+        .key = "iPhoneLight",
-+        .path = ":/themes/iPhoneLight.json",
-+        .name = "iPhone (Light)",
-+    },
-+    {
-+        .key = "iPhoneDark",
-+        .path = ":/themes/iPhoneDark.json",
-+        .name = "iPhone (Dark)",
-+    },
-     {
-         .key = "Black",
-         .path = ":/themes/Black.json",
-diff --git a/src/singletons/Theme.hpp b/src/singletons/Theme.hpp
-index ddfb34a3a..a0d856af4 100644
---- a/src/singletons/Theme.hpp
-+++ b/src/singletons/Theme.hpp
-@@ -178,7 +178,7 @@ public:
- 
-     pajlada::Signals::NoArgSignal updated;
- 
--    QStringSetting themeName{"/appearance/theme/name", "Dark"};
-+    QStringSetting themeName{"/appearance/theme/name", "GalaxyFold"};
-     QStringSetting lightSystemThemeName{"/appearance/theme/lightSystem",
-                                         "Light"};
-     QStringSetting darkSystemThemeName{"/appearance/theme/darkSystem", "Dark"};
-diff --git a/src/singletons/WindowManager.cpp b/src/singletons/WindowManager.cpp
-index a1a2e9f77..f4941e272 100644
---- a/src/singletons/WindowManager.cpp
-+++ b/src/singletons/WindowManager.cpp
-@@ -142,6 +142,7 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
-     qCDebug(chatterinoWindowmanager) << "init WindowManager";
- 
-     this->updateWordTypeMaskListener.add(settings.showTimestamps);
-+    this->updateWordTypeMaskListener.add(settings.deviceStyle);
-     this->updateWordTypeMaskListener.add(settings.showHeaderTimestamps);
-     this->updateWordTypeMaskListener.add(settings.showAnnouncementHeader);
-     this->updateWordTypeMaskListener.add(settings.showSubscriptionHeader);
-@@ -159,6 +160,9 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
-     this->updateWordTypeMaskListener.add(settings.lowercaseDomains);
-     this->updateWordTypeMaskListener.add(settings.showReplyButton);
- 
-+    this->forceLayoutChannelViewsListener.add(settings.deviceStyle);
-+    this->forceLayoutChannelViewsListener.add(
-+        settings.phoneMessageShowAvatars);
-     this->forceLayoutChannelViewsListener.add(
-         settings.moderationActions.delayedItemsChanged);
-     this->forceLayoutChannelViewsListener.add(
-@@ -221,7 +225,12 @@ void WindowManager::updateWordTypeMask()
-     auto flags = MessageElementFlags(MEF::Text);
- 
-     // timestamp
--    if (settings->showTimestamps)
-+    // Phone device styles: no timestamps, just bubbles (both the Fold
-+    // and the iPhone look). This only removes the Timestamp element
-+    // from the layout mask; the underlying parseTime /
-+    // serverReceivedTime on each Message is kept untouched.
-+    if (settings->showTimestamps &&
-+        getSettings()->deviceStyle.getValue().isEmpty())
-     {
-         flags.set(MEF::Timestamp);
-     }
-diff --git a/src/widgets/Window.cpp b/src/widgets/Window.cpp
-index a013e705f..9a4e927a7 100644
---- a/src/widgets/Window.cpp
-+++ b/src/widgets/Window.cpp
-@@ -4,6 +4,10 @@
- 
- #include "widgets/Window.hpp"
- 
-+#include "widgets/DevicePhone.hpp"
-+#include "widgets/DeviceHomeScreen.hpp"
-+#include "widgets/DevicePasscode.hpp"
-+
- #include "Application.hpp"
- #include "common/Args.hpp"
- #include "common/Common.hpp"
-@@ -47,10 +51,13 @@
- 
- #include <QApplication>
- #include <QDesktopServices>
-+#include <QHBoxLayout>
- #include <QHeaderView>
-+#include <QLabel>
- #include <QMenuBar>
- #include <QObject>
- #include <QPalette>
-+#include <QPushButton>
- #include <QStandardItemModel>
- #include <QVBoxLayout>
- 
-@@ -79,7 +86,17 @@ Window::Window(WindowType type, QWidget *parent)
- 
-     if (type == WindowType::Main)
-     {
--        this->resize(int(600 * this->scale()), int(500 * this->scale()));
-+        // Phone device styles: the main window opens phone-sized, tall
-+        // and narrow, like the picked phone. Fold is slightly wider
-+        // than iPhone, like the real cover screens.
-+        if (getSettings()->deviceStyle.getValue() == "iPhone")
-+        {
-+            this->resize(int(400 * this->scale()), int(860 * this->scale()));
-+        }
-+        else
-+        {
-+            this->resize(int(430 * this->scale()), int(900 * this->scale()));
-+        }
- #ifdef Q_OS_LINUX
-         if (this->theme->window.background.alpha() != 255)
-         {
-@@ -216,6 +233,68 @@ void Window::addLayout()
- {
-     auto *layout = new QVBoxLayout();
- 
-+    if (this->type_ == WindowType::Main)
-+    {
-+        // Phone device styles: status bar + camera at the top of the
-+        // main window, above the chats. Popups and attached windows
-+        // keep the plain layout.
-+        this->devicePhoneBar_ = new DevicePhoneBar(this);
-+        layout->addWidget(this->devicePhoneBar_);
-+
-+        // Code Screen hint: a small banner above the chats when no
-+        // passcode protects the app yet. It is dismissible and never
-+        // blocks chats or typing - it is a nudge, not a lock. The
-+        // button opens Settings -> Code Screen directly.
-+        this->passcodeHintBanner_ = new QWidget(this);
-+        auto *bannerLayout = new QHBoxLayout(this->passcodeHintBanner_);
-+        bannerLayout->setContentsMargins(10, 4, 10, 4);
-+        bannerLayout->setSpacing(8);
-+        auto *hintLabel = new QLabel(
-+            "No passcode set yet — anyone using this PC can type as "
-+            "you. Turn on Code Screen and set a code to lock the app.",
-+            this->passcodeHintBanner_);
-+        hintLabel->setWordWrap(true);
-+        bannerLayout->addWidget(hintLabel, 1);
-+        auto *setCodeButton = new QPushButton("Set a passcode",
-+                                              this->passcodeHintBanner_);
-+        QObject::connect(setCodeButton, &QPushButton::clicked, this,
-+                         [this] {
-+                             getApp()->getWindows()->showSettingsDialog(
-+                                 this,
-+                                 SettingsDialogPreference::CodeScreen);
-+                         });
-+        bannerLayout->addWidget(setCodeButton);
-+        auto *dismissButton =
-+            new QPushButton("×", this->passcodeHintBanner_);
-+        QObject::connect(dismissButton, &QPushButton::clicked, this,
-+                         [this] {
-+                             getSettings()
-+                                 ->passcodeHintDismissed.setValue(true);
-+                             this->refreshPasscodeHint();
-+                         });
-+        bannerLayout->addWidget(dismissButton);
-+        layout->addWidget(this->passcodeHintBanner_);
-+        this->refreshPasscodeHint();
-+        // Keep the banner in sync if the settings change while open.
-+        // Turning Code Screen off again or clearing the code resets
-+        // the dismissal, so the hint comes back.
-+        getSettings()->codeScreenEnabled.connect(
-+            [this](bool) {
-+                this->refreshPasscodeHint();
-+            },
-+            this->signalHolder_);
-+        getSettings()->passcodeCode.connect(
-+            [this](const QString &) {
-+                this->refreshPasscodeHint();
-+            },
-+            this->signalHolder_);
-+        getSettings()->passcodeHintDismissed.connect(
-+            [this](bool) {
-+                this->refreshPasscodeHint();
-+            },
-+            this->signalHolder_);
-+    }
-+
-     layout->addWidget(this->notebook_);
-     this->getLayoutContainer()->setLayout(layout);
- 
-@@ -224,6 +303,76 @@ void Window::addLayout()
- 
-     this->notebook_->setAllowUserTabManagement(true);
-     this->notebook_->setShowAddButton(true);
-+
-+    if (this->type_ == WindowType::Main)
-+    {
-+        // Phone home screen (OS-style hub): every chat tab is an app
-+        // icon on it. The normal Chatterino tab bar is hidden - the
-+        // home screen is the hub, chats live behind their app icons.
-+        // The Home button in the status bar returns here.
-+        this->notebook_->hideAllTabsAction->trigger();
-+        this->homeScreen_ = new DeviceHomeScreen(this, this->notebook_);
-+        this->homeScreen_->setGeometry(this->rect());
-+        this->homeScreen_->refresh();
-+        this->homeScreen_->show();
-+        this->homeScreen_->raise();
-+        QObject::connect(this->devicePhoneBar_,
-+                         &DevicePhoneBar::homeRequested, this,
-+                         [this] {
-+                             this->showHomeScreen();
-+                         });
-+    }
-+
-+    if (this->type_ == WindowType::Main &&
-+        DevicePasscodeScreen::lockActive())
-+    {
-+        // Code Screen lock: shown over the main window on launch,
-+        // chats load underneath. Only when Code Screen is on AND a
-+        // code has been set - if no code was ever set there is no lock
-+        // screen at all and the app opens straight to chats.
-+        this->passcodeScreen_ = new DevicePasscodeScreen(this);
-+        this->passcodeScreen_->setGeometry(this->rect());
-+        this->passcodeScreen_->raise();
-+        this->passcodeScreen_->show();
-+        QObject::connect(this->passcodeScreen_,
-+                         &DevicePasscodeScreen::unlocked, this, [this] {
-+                             this->passcodeScreen_ = nullptr;
-+                         });
-+    }
-+}
-+
-+void Window::refreshPasscodeHint()
-+{
-+    if (this->passcodeHintBanner_ == nullptr)
-+    {
-+        return;
-+    }
-+    this->passcodeHintBanner_->setVisible(
-+        DevicePasscodeScreen::hintVisible());
-+}
-+
-+void Window::showHomeScreen()
-+{
-+    if (this->homeScreen_ == nullptr)
-+    {
-+        return;
-+    }
-+    this->homeScreen_->refresh();
-+    this->homeScreen_->show();
-+    this->homeScreen_->raise();
-+}
-+
-+void Window::resizeEvent(QResizeEvent *event)
-+{
-+    BaseWindow::resizeEvent(event);
-+    if (this->homeScreen_ != nullptr)
-+    {
-+        this->homeScreen_->setGeometry(this->rect());
-+    }
-+    if (this->passcodeScreen_ != nullptr)
-+    {
-+        this->passcodeScreen_->setGeometry(this->rect());
-+    }
- }
- 
- void Window::addCustomTitlebarButtons()
-diff --git a/src/widgets/Window.hpp b/src/widgets/Window.hpp
-index 706fbce60..b68e000da 100644
---- a/src/widgets/Window.hpp
-+++ b/src/widgets/Window.hpp
-@@ -17,6 +17,9 @@ class LabelButton;
- class Theme;
- class UpdateDialog;
- class SplitNotebook;
-+class DevicePhoneBar;
-+class DevicePasscodeScreen;
-+class DeviceHomeScreen;
- class Channel;
- 
- /**
-@@ -44,8 +47,11 @@ protected:
-     void closeEvent(QCloseEvent *event) override;
-     bool event(QEvent *event) override;
-     void themeChangedEvent() override;
-+    void resizeEvent(QResizeEvent *event) override;
- 
- private:
-+    void refreshPasscodeHint();
-+    void showHomeScreen();
-     void addCustomTitlebarButtons();
-     void addDebugStuff(
-         std::map<QString, std::function<QString(std::vector<QString>)>>
-@@ -58,6 +64,17 @@ private:
-     WindowType type_;
- 
-     SplitNotebook *notebook_;
-+    // Phone device styles, main window only (null on popup windows).
-+    DevicePhoneBar *devicePhoneBar_ = nullptr;
-+    // Code Screen: lock screen overlay (only when Code Screen is on
-+    // and a code is set) and the dismissible "no passcode yet" hint
-+    // banner above the chats. Both main window only.
-+    DevicePasscodeScreen *passcodeScreen_ = nullptr;
-+    QWidget *passcodeHintBanner_ = nullptr;
-+    // Phone home screen (OS-style hub, main window only): every chat
-+    // tab is an app icon on it. The app always lands here on launch,
-+    // after the code screen if there is one.
-+    DeviceHomeScreen *homeScreen_ = nullptr;
-     LabelButton *userLabel_ = nullptr;
-     std::shared_ptr<UpdateDialog> updateDialogHandle_;
- 
-diff --git a/src/widgets/dialogs/SettingsDialog.cpp b/src/widgets/dialogs/SettingsDialog.cpp
-index 4a8ec6aab..cc7ba5fc4 100644
---- a/src/widgets/dialogs/SettingsDialog.cpp
-+++ b/src/widgets/dialogs/SettingsDialog.cpp
-@@ -18,6 +18,8 @@
- #include "widgets/settingspages/CommandPage.hpp"
- #include "widgets/settingspages/ExternalToolsPage.hpp"
- #include "widgets/settingspages/FiltersPage.hpp"
-+#include "widgets/settingspages/DeviceStylePage.hpp"
-+#include "widgets/settingspages/CodeScreenPage.hpp"
- #include "widgets/settingspages/GeneralPage.hpp"
- #include "widgets/settingspages/HighlightingPage.hpp"
- #include "widgets/settingspages/IgnoresPage.hpp"
-@@ -237,6 +239,8 @@ void SettingsDialog::addTabs()
- 
-     // clang-format off
-     this->addTab([]{return new GeneralPage;},          "General",        ":/settings/about.svg", SettingsTabId::General);
-+    this->addTab([]{return new DeviceStylePage;},     "Device Style",   ":/settings/about.svg");
-+    this->addTab([]{return new CodeScreenPage;},      "Code Screen",    ":/settings/about.svg", SettingsTabId::CodeScreen);
-     this->ui_.tabContainer->addSpacing(16);
-     this->addTab([]{return new AccountsPage;},         "Accounts",       ":/settings/accounts.svg", SettingsTabId::Accounts);
-     this->addTab([]{return new NicknamesPage;},        "Nicknames",      ":/settings/accounts.svg");
-@@ -382,6 +386,11 @@ void SettingsDialog::showDialog(QWidget *parent,
-         }
-         break;
- 
-+        case SettingsDialogPreference::CodeScreen: {
-+            instance->selectTab(SettingsTabId::CodeScreen);
-+        }
-+        break;
-+
-         default:;
-     }
- 
-diff --git a/src/widgets/dialogs/SettingsDialog.hpp b/src/widgets/dialogs/SettingsDialog.hpp
-index 840c2ee95..be2a4f2d4 100644
---- a/src/widgets/dialogs/SettingsDialog.hpp
-+++ b/src/widgets/dialogs/SettingsDialog.hpp
-@@ -36,6 +36,7 @@ enum class SettingsDialogPreference {
-     Highlights,
-     ModerationActions,
-     About,
-+    CodeScreen,
- };
- 
- class SettingsDialog : public BaseWindow
-diff --git a/src/widgets/helper/SettingsDialogTab.hpp b/src/widgets/helper/SettingsDialogTab.hpp
-index 9da1f4f67..9d07e4504 100644
---- a/src/widgets/helper/SettingsDialogTab.hpp
-+++ b/src/widgets/helper/SettingsDialogTab.hpp
-@@ -24,6 +24,7 @@ enum class SettingsTabId {
-     Highlights,
-     Moderation,
-     About,
-+    CodeScreen,
- };
- 
- class SettingsDialogTab : public BaseWidget
 diff --git a/resources/themes/GalaxyFold.json b/resources/themes/GalaxyFold.json
 new file mode 100644
 index 000000000..6005c6224
@@ -1158,6 +411,462 @@ index 000000000..b615b02a9
 +    }
 +  }
 +}
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 40ebbad7e..f7e2b3224 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -759,6 +759,12 @@ set(SOURCE_FILES
+         widgets/OverlayWindow.hpp
+         widgets/PluginRepl.cpp
+         widgets/PluginRepl.hpp
++        widgets/DevicePhone.cpp
++        widgets/DevicePhone.hpp
++        widgets/DevicePasscode.cpp
++        widgets/DevicePasscode.hpp
++        widgets/DeviceHomeScreen.cpp
++        widgets/DeviceHomeScreen.hpp
+         widgets/Scrollbar.cpp
+         widgets/Scrollbar.hpp
+         widgets/TooltipEntryWidget.cpp
+@@ -933,6 +939,10 @@ set(SOURCE_FILES
+         widgets/settingspages/CommandPage.cpp
+         widgets/settingspages/CommandPage.hpp
+         widgets/settingspages/CustomWidgets.hpp
++        widgets/settingspages/DeviceStylePage.cpp
++        widgets/settingspages/DeviceStylePage.hpp
++        widgets/settingspages/CodeScreenPage.cpp
++        widgets/settingspages/CodeScreenPage.hpp
+         widgets/settingspages/ExternalToolsPage.cpp
+         widgets/settingspages/ExternalToolsPage.hpp
+         widgets/settingspages/FiltersPage.cpp
+diff --git a/src/messages/MessageFlag.hpp b/src/messages/MessageFlag.hpp
+index fee5998a6..c347d4bc5 100644
+--- a/src/messages/MessageFlag.hpp
++++ b/src/messages/MessageFlag.hpp
+@@ -82,6 +82,13 @@ enum class MessageFlag : std::int64_t {
+     UncategorizedNotification = (1LL << 45),
+     /// The message was detected as ASCII art and has its layout width limited to the default web chat width.
+     AsciiArt = (1LL << 46),
++    /// Phone device styles only: this message was sent by the currently
++    /// logged-in Twitch or Kick account, so its lines are right-aligned
++    /// in the chat row. Layout-only: set on a *copy* of the message
++    /// flags in MessageLayout::actuallyLayout, never written back to
++    /// Message::flags, never persisted, never used for moderation,
++    /// highlights, or protocol decisions.
++    PhoneOwnMessage = (1LL << 47),
+ };
+ using MessageFlags = FlagsEnum<MessageFlag>;
+ 
+diff --git a/src/messages/layouts/MessageLayout.cpp b/src/messages/layouts/MessageLayout.cpp
+index b753bd9e9..cfbbf345e 100644
+--- a/src/messages/layouts/MessageLayout.cpp
++++ b/src/messages/layouts/MessageLayout.cpp
+@@ -5,7 +5,10 @@
+ #include "messages/layouts/MessageLayout.hpp"
+ 
+ #include "Application.hpp"
++#include "controllers/accounts/AccountController.hpp"
+ #include "controllers/highlights/types/AutomodCaughtHighlight.hpp"
++#include "providers/kick/KickAccount.hpp"
++#include "providers/twitch/TwitchAccount.hpp"
+ #include "messages/layouts/MessageLayoutContainer.hpp"
+ #include "messages/layouts/MessageLayoutContext.hpp"
+ #include "messages/layouts/MessageLayoutElement.hpp"
+@@ -21,6 +24,7 @@
+ #include <QApplication>
+ #include <QDebug>
+ #include <QPainter>
++#include <QPainterPath>
+ #include <QtGlobal>
+ #include <QThread>
+ 
+@@ -37,6 +41,103 @@ QColor blendColors(const QColor &base, const QColor &apply)
+                    base.blueF() * (1 - alpha) + apply.blueF() * alpha);
+     return result;
+ }
++
++// ---------------------------------------------------------------------------
++// Phone device styles (Galaxy Fold / iPhone, style only).
++// Used only when a phone device style is active (both built-in styles
++// are phone styles). They never touch channels, protocols, moderation,
++// or emote providers. The platform outline is purple for Twitch
++// (145, 70, 255) and green for Kick (83, 252, 24).
++// ---------------------------------------------------------------------------
++
++bool phoneStyleEnabled()
++{
++    // Both device styles are phone styles; deviceStyle only ever holds
++    // "GalaxyFold" or "iPhone".
++    return !getSettings()->deviceStyle.getValue().isEmpty();
++}
++
++bool phoneIsFold()
++{
++    return getSettings()->deviceStyle.getValue() == "GalaxyFold";
++}
++
++/// True when this message was sent by the account currently connected
++/// to the app for THIS message's channel, decided per channel by the
++/// channel's platform - never by a fixed username, and never by the
++/// other platform's account:
++///   - Kick channel (message.platform == Kick): only the Kick account
++///     connected right now (accounts->kick.current()) counts. A message
++///     from the Twitch login name does NOT go right in a Kick channel.
++///   - Twitch channel (message.platform == AnyOrTwitch, the default for
++///     Twitch messages): only the Twitch account connected right now
++///     (accounts->twitch.getCurrent()) counts.
++/// Anonymous / logged-out accounts never match, so when no account is
++/// connected for that channel's platform, nobody goes right: every
++/// message stays on the left. No username is hard-coded anywhere here.
++bool phoneIsOwnMessage(const Message &message)
++{
++    if (message.loginName.isEmpty())
++    {
++        return false;
++    }
++    auto *accounts = getApp()->getAccounts();
++    if (accounts == nullptr)
++    {
++        return false;
++    }
++    if (message.platform == MessagePlatform::Kick)
++    {
++        auto kick = accounts->kick.current();
++        return kick != nullptr && !kick->isAnonymous() &&
++               kick->username().compare(message.loginName,
++                                        Qt::CaseInsensitive) == 0;
++    }
++    auto twitch = accounts->twitch.getCurrent();
++    return twitch != nullptr && !twitch->isAnon() &&
++           twitch->getUserName().compare(message.loginName,
++                                         Qt::CaseInsensitive) == 0;
++}
++
++QString phoneDisplayName(const Message &message)
++{
++    return message.displayName.isEmpty() ? message.loginName
++                                         : message.displayName;
++}
++
++/// The single initial painted in the avatar circle for received messages.
++/// Initials only: Qt chat rows carry no per-message profile photo.
++QChar phoneAvatarInitial(const Message &message)
++{
++    const QString name = phoneDisplayName(message);
++    return name.isEmpty() ? QChar('?') : name.at(0).toUpper();
++}
++
++QColor phoneOutlineColor(const Message &message)
++{
++    return message.platform == MessagePlatform::Kick
++               ? QColor(83, 252, 24)
++               : QColor(145, 70, 255);
++}
++
++/// Bubble fill for phone styles. Sent messages use the phone's message
++/// blue (Samsung blue on Fold, iOS blue on iPhone); received messages
++/// use the system grey for the current theme, inferred from the chat
++/// text colour (dark text = light theme). Highlighted messages keep
++/// their highlight colour as the fill instead; see updateBuffer.
++QColor phoneBubbleFill(const QColor &textColor, bool isOwn, bool isFold)
++{
++    if (isOwn)
++    {
++        return isFold ? QColor("#0381fe") : QColor("#0a84ff");
++    }
++    const bool lightTheme = textColor.lightness() < 128;
++    if (lightTheme)
++    {
++        return isFold ? QColor("#e8e8ed") : QColor("#e9e9eb");
++    }
++    return QColor("#2c2c2e");
++}
+ }  // namespace
+ 
+ MessageLayout::MessageLayout(MessagePtr message)
+@@ -137,6 +238,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+ 
+     auto messageFlags = this->message_->flags;
+ 
++    // Phone device styles (layout-only): mark own messages on this local
++    // copy only, so MessageLayoutContainer can right-align their lines.
++    // this->message_->flags itself is never modified here.
++    if (phoneStyleEnabled() && phoneIsOwnMessage(*this->message_))
++    {
++        messageFlags.set(MessageFlag::PhoneOwnMessage);
++    }
++
+     if (this->flags.has(MessageLayoutFlag::Expanded) ||
+         (ctx.flags.has(MessageElementFlag::ModeratorTools) &&
+          !this->message_->flags.has(MessageFlag::Disabled)))
+@@ -155,6 +264,13 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+     this->container_.beginLayout(ctx.width, this->scale_, this->imageScale_,
+                                  messageFlags);
+ 
++    // Phone styles: once per message, put the username (and any badges
++    // before it) on its own line above the message text, so the name reads
++    // as a label above the bubble instead of inline before the text.
++    // Whisper rows carry two Username elements and still break after the
++    // first one; that is a known, cosmetic edge case of this style.
++    bool phoneUsernameLineBroken = false;
++
+     for (const auto &element : this->message_->elements)
+     {
+         if (hideModerated && this->message_->flags.has(MessageFlag::Disabled))
+@@ -205,6 +321,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+         }
+ 
+         element->addToContainer(this->container_, ctx);
++
++        if (phoneStyleEnabled() && !phoneUsernameLineBroken &&
++            element->getFlags().has(MessageElementFlag::Username) &&
++            !this->message_->flags.has(MessageFlag::System))
++        {
++            this->container_.breakLine();
++            phoneUsernameLineBroken = true;
++        }
+     }
+ 
+     if (this->height_ != this->container_.getHeight())
+@@ -390,7 +514,77 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
+         backgroundColor = QColor("#4A273D");
+     }
+ 
+-    painter.fillRect(buffer->rect(), backgroundColor);
++    // Phone device styles (style only): paint the row as a rounded
++    // bubble with a platform-coloured outline, instead of the normal
++    // full-width row fill. Qt chat rows are full-width, so this is a
++    // *row* bubble, not a content-tight phone bubble: long messages
++    // still wrap at full row width, and own messages are right-aligned
++    // per line by MessageLayoutContainer. System messages and messages
++    // without a sender keep the normal background below. The bubble is
++    // painted here, before the elements are painted on top of it, so the
++    // avatar circle below must line up with the avatar indent added for
++    // received lines in MessageLayoutContainer::breakLine.
++    if (phoneStyleEnabled() && !this->message_->loginName.isEmpty() &&
++        !this->message_->flags.has(MessageFlag::System))
++    {
++        painter.fillRect(buffer->rect(), backgroundColor);
++
++        const qreal s = this->scale_ > 0 ? this->scale_ : 1;
++        const bool isOwn = phoneIsOwnMessage(*this->message_);
++        const bool isFold = phoneIsFold();
++        const QColor outline = phoneOutlineColor(*this->message_);
++        QColor fill =
++            phoneBubbleFill(ctx.messageColors.regularText, isOwn, isFold);
++        if (this->message_->flags.has(MessageFlag::Highlighted) &&
++            this->message_->highlightColor &&
++            this->message_->highlightColor->isValid())
++        {
++            fill = *this->message_->highlightColor;
++        }
++
++        painter.save();
++        painter.setRenderHint(QPainter::Antialiasing, true);
++        // Received bubbles start after the avatar circle (when avatars
++        // are on), so the avatar sits outside the bubble; sent bubbles
++        // use the normal inset on both sides.
++        const bool showAvatar =
++            !isOwn && getSettings()->phoneMessageShowAvatars.getValue();
++        const qreal bubbleLeft = showAvatar ? 32 * s : 6 * s;
++        const QRectF bubble(
++            buffer->rect().left() + bubbleLeft, buffer->rect().top() + 2 * s,
++            buffer->rect().width() - bubbleLeft - 6 * s,
++            buffer->rect().height() - 4 * s);
++        QPainterPath path;
++        path.addRoundedRect(bubble, 14 * s, 14 * s);
++        painter.setPen(QPen(outline, 2 * s));
++        painter.setBrush(fill);
++        painter.drawPath(path);
++
++        // Received messages only: sender initial in a small circle at the
++        // left of the row, next to where the username line starts.
++        if (showAvatar)
++        {
++            const qreal diameter = 24 * s;
++            const QRectF avatar(buffer->rect().left() + 4 * s,
++                                buffer->rect().top() + 4 * s, diameter,
++                                diameter);
++            painter.setPen(QPen(outline, 1 * s));
++            painter.setBrush(outline);
++            painter.drawEllipse(avatar);
++            painter.setPen(ctx.messageColors.regularText);
++            QFont font = painter.font();
++            font.setBold(true);
++            font.setPointSizeF(font.pointSizeF() * 0.9);
++            painter.setFont(font);
++            painter.drawText(avatar, Qt::AlignCenter,
++                             QString(phoneAvatarInitial(*this->message_)));
++        }
++        painter.restore();
++    }
++    else
++    {
++        painter.fillRect(buffer->rect(), backgroundColor);
++    }
+ 
+     // draw message
+     this->container_.paintElements(painter, ctx);
+diff --git a/src/messages/layouts/MessageLayoutContainer.cpp b/src/messages/layouts/MessageLayoutContainer.cpp
+index 79fa5135a..d58ca142d 100644
+--- a/src/messages/layouts/MessageLayoutContainer.cpp
++++ b/src/messages/layouts/MessageLayoutContainer.cpp
+@@ -183,6 +183,34 @@ void MessageLayoutContainer::breakLine()
+                        .right()) /
+                   2;
+     }
++    // Phone device styles (layout only, no protocol or data change):
++    // - Own messages: right-align each line, like a sent phone message.
++    //   This is the same arithmetic as Centered above, without the /2,
++    //   and it relies on PhoneOwnMessage being set on the layout copy
++    //   of the flags in MessageLayout::actuallyLayout, never on the
++    //   message.
++    // - Received messages: indent each line by the avatar circle width
++    //   plus a gap, so the avatar painted in MessageLayout::updateBuffer
++    //   sits to the left of the username and message text.
++    // Both branches are skipped entirely when no phone style is active.
++    else if (!getSettings()->deviceStyle.getValue().isEmpty() &&
++             this->elements_.size() > 0)
++    {
++        if (this->flags_.has(MessageFlag::PhoneOwnMessage))
++        {
++            const int marginOffset = int(MARGIN.left() * this->scale_) +
++                                     int(MARGIN.right() * this->scale_);
++            xOffset = this->width_ - marginOffset -
++                      this->elements_.at(this->elements_.size() - 1)
++                          ->getRect()
++                          .right();
++        }
++        else if (getSettings()->phoneMessageShowAvatars.getValue())
++        {
++            // 24px avatar circle + 8px gap, matching updateBuffer.
++            xOffset = 32 * this->scale_;
++        }
++    }
+ 
+     for (size_t i = this->lineStart_; i < this->elements_.size(); i++)
+     {
+diff --git a/src/singletons/Settings.hpp b/src/singletons/Settings.hpp
+index afb026620..df2b5771d 100644
+--- a/src/singletons/Settings.hpp
++++ b/src/singletons/Settings.hpp
+@@ -246,6 +246,12 @@ public:
+     FloatSetting twitchGifScale = {"/appearance/messages/twitchGifScale", 1.F};
+     BoolSetting separateMessages = {"/appearance/messages/separateMessages",
+                                     false};
++    // Phone device styles (Galaxy Fold / iPhone, style only): reserve
++    // space at the left of received messages and paint the sender's
++    // initial in a small circle next to their name. Initials only:
++    // Qt chat rows carry no per-message profile photo.
++    BoolSetting phoneMessageShowAvatars = {
++        "/appearance/messages/phoneMessageShowAvatars", true};
+     BoolSetting fadeMessageHistory = {"/appearance/messages/fadeMessageHistory",
+                                       true};
+     BoolSetting hideModerated = {"/appearance/messages/hideModerated", false};
+@@ -261,6 +267,25 @@ public:
+ 
+     EnumSetting<NotebookTabLocation> tabDirection = {"/appearance/tabDirection",
+                                                      NotebookTabLocation::Top};
++    // Phone device style (style only): "GalaxyFold" (default, Samsung
++    // One UI) or "iPhone" (iOS Messages). Picked in Settings ->
++    // Device Style; applyDeviceStyle() in widgets/DevicePhone.cpp
++    // switches the theme, the tab bar and the bubbles with it.
++    QStringSetting deviceStyle = {"/appearance/deviceStyle", "GalaxyFold"};
++    // Code Screen (passcode lock, local only). Default OFF, so a fresh
++    // install is never locked with an unknown code. The lock screen
++    // only appears on launch when this is on AND a code has been set;
++    // if no code was ever set there is no lock screen at all and the
++    // app opens straight to chats. The code is stored locally in the
++    // app settings on this PC - not real account security.
++    BoolSetting codeScreenEnabled = {"/appearance/codeScreenEnabled",
++                                     false};
++    QStringSetting passcodeCode = {"/appearance/passcodeCode", ""};
++    // The "no passcode yet" hint above the chats was dismissed for this
++    // launch. Turning Code Screen off again or clearing the code resets
++    // this, so the hint comes back.
++    BoolSetting passcodeHintDismissed = {
++        "/appearance/passcodeHintDismissed", false};
+     EnumSetting<NotebookTabVisibility> tabVisibility = {
+         "/appearance/tabVisibility",
+         NotebookTabVisibility::AllTabs,
+diff --git a/src/singletons/Theme.cpp b/src/singletons/Theme.cpp
+index 3e499b9f2..878a1f671 100644
+--- a/src/singletons/Theme.cpp
++++ b/src/singletons/Theme.cpp
+@@ -294,6 +294,24 @@ const std::vector<ThemeDescriptor> Theme::builtInThemes{
+         .path = ":/themes/Dark.json",
+         .name = "Dark",
+     },
++    // Phone device styles. Inserted after Dark on purpose: fallbackTheme
++    // is builtInThemes.at(2) (Dark), and inserting before it would
++    // silently change the fallback.
++    {
++        .key = "GalaxyFold",
++        .path = ":/themes/GalaxyFold.json",
++        .name = "Galaxy Fold",
++    },
++    {
++        .key = "iPhoneLight",
++        .path = ":/themes/iPhoneLight.json",
++        .name = "iPhone (Light)",
++    },
++    {
++        .key = "iPhoneDark",
++        .path = ":/themes/iPhoneDark.json",
++        .name = "iPhone (Dark)",
++    },
+     {
+         .key = "Black",
+         .path = ":/themes/Black.json",
+diff --git a/src/singletons/Theme.hpp b/src/singletons/Theme.hpp
+index ddfb34a3a..a0d856af4 100644
+--- a/src/singletons/Theme.hpp
++++ b/src/singletons/Theme.hpp
+@@ -178,7 +178,7 @@ public:
+ 
+     pajlada::Signals::NoArgSignal updated;
+ 
+-    QStringSetting themeName{"/appearance/theme/name", "Dark"};
++    QStringSetting themeName{"/appearance/theme/name", "GalaxyFold"};
+     QStringSetting lightSystemThemeName{"/appearance/theme/lightSystem",
+                                         "Light"};
+     QStringSetting darkSystemThemeName{"/appearance/theme/darkSystem", "Dark"};
+diff --git a/src/singletons/WindowManager.cpp b/src/singletons/WindowManager.cpp
+index a1a2e9f77..f4941e272 100644
+--- a/src/singletons/WindowManager.cpp
++++ b/src/singletons/WindowManager.cpp
+@@ -142,6 +142,7 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
+     qCDebug(chatterinoWindowmanager) << "init WindowManager";
+ 
+     this->updateWordTypeMaskListener.add(settings.showTimestamps);
++    this->updateWordTypeMaskListener.add(settings.deviceStyle);
+     this->updateWordTypeMaskListener.add(settings.showHeaderTimestamps);
+     this->updateWordTypeMaskListener.add(settings.showAnnouncementHeader);
+     this->updateWordTypeMaskListener.add(settings.showSubscriptionHeader);
+@@ -159,6 +160,9 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
+     this->updateWordTypeMaskListener.add(settings.lowercaseDomains);
+     this->updateWordTypeMaskListener.add(settings.showReplyButton);
+ 
++    this->forceLayoutChannelViewsListener.add(settings.deviceStyle);
++    this->forceLayoutChannelViewsListener.add(
++        settings.phoneMessageShowAvatars);
+     this->forceLayoutChannelViewsListener.add(
+         settings.moderationActions.delayedItemsChanged);
+     this->forceLayoutChannelViewsListener.add(
+@@ -221,7 +225,12 @@ void WindowManager::updateWordTypeMask()
+     auto flags = MessageElementFlags(MEF::Text);
+ 
+     // timestamp
+-    if (settings->showTimestamps)
++    // Phone device styles: no timestamps, just bubbles (both the Fold
++    // and the iPhone look). This only removes the Timestamp element
++    // from the layout mask; the underlying parseTime /
++    // serverReceivedTime on each Message is kept untouched.
++    if (settings->showTimestamps &&
++        getSettings()->deviceStyle.getValue().isEmpty())
+     {
+         flags.set(MEF::Timestamp);
+     }
 diff --git a/src/widgets/DeviceHomeScreen.cpp b/src/widgets/DeviceHomeScreen.cpp
 new file mode 100644
 index 000000000..6f6787861
@@ -1379,10 +1088,10 @@ index 000000000..6f6787861
 +}  // namespace chatterino
 diff --git a/src/widgets/DeviceHomeScreen.hpp b/src/widgets/DeviceHomeScreen.hpp
 new file mode 100644
-index 000000000..0fa10c9a9
+index 000000000..804eb1ad4
 --- /dev/null
 +++ b/src/widgets/DeviceHomeScreen.hpp
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,61 @@
 +// SPDX-FileCopyrightText: 2026 Contributors to Chatterino <https://chatterino.com>
 +//
 +// SPDX-License-Identifier: MIT
@@ -1413,7 +1122,8 @@ index 000000000..0fa10c9a9
 + * status bar at the top returns here.
 + *
 + * Messaging look (already in the bubble work, and it holds here):
-+ * your own messages go on the RIGHT (logged-in official_robust_clan),
++ * your own messages go on the RIGHT - decided per channel by the
++ * account connected to the app for that channel's platform - and
 + * every other chatter's messages go on the LEFT, Twitch and Kick,
 + * Fold and iPhone.
 + */
@@ -2063,6 +1773,302 @@ index 000000000..49cd18709
 +bool deviceStyleIsFold();
 +
 +}  // namespace chatterino
+diff --git a/src/widgets/Window.cpp b/src/widgets/Window.cpp
+index a013e705f..9a4e927a7 100644
+--- a/src/widgets/Window.cpp
++++ b/src/widgets/Window.cpp
+@@ -4,6 +4,10 @@
+ 
+ #include "widgets/Window.hpp"
+ 
++#include "widgets/DevicePhone.hpp"
++#include "widgets/DeviceHomeScreen.hpp"
++#include "widgets/DevicePasscode.hpp"
++
+ #include "Application.hpp"
+ #include "common/Args.hpp"
+ #include "common/Common.hpp"
+@@ -47,10 +51,13 @@
+ 
+ #include <QApplication>
+ #include <QDesktopServices>
++#include <QHBoxLayout>
+ #include <QHeaderView>
++#include <QLabel>
+ #include <QMenuBar>
+ #include <QObject>
+ #include <QPalette>
++#include <QPushButton>
+ #include <QStandardItemModel>
+ #include <QVBoxLayout>
+ 
+@@ -79,7 +86,17 @@ Window::Window(WindowType type, QWidget *parent)
+ 
+     if (type == WindowType::Main)
+     {
+-        this->resize(int(600 * this->scale()), int(500 * this->scale()));
++        // Phone device styles: the main window opens phone-sized, tall
++        // and narrow, like the picked phone. Fold is slightly wider
++        // than iPhone, like the real cover screens.
++        if (getSettings()->deviceStyle.getValue() == "iPhone")
++        {
++            this->resize(int(400 * this->scale()), int(860 * this->scale()));
++        }
++        else
++        {
++            this->resize(int(430 * this->scale()), int(900 * this->scale()));
++        }
+ #ifdef Q_OS_LINUX
+         if (this->theme->window.background.alpha() != 255)
+         {
+@@ -216,6 +233,68 @@ void Window::addLayout()
+ {
+     auto *layout = new QVBoxLayout();
+ 
++    if (this->type_ == WindowType::Main)
++    {
++        // Phone device styles: status bar + camera at the top of the
++        // main window, above the chats. Popups and attached windows
++        // keep the plain layout.
++        this->devicePhoneBar_ = new DevicePhoneBar(this);
++        layout->addWidget(this->devicePhoneBar_);
++
++        // Code Screen hint: a small banner above the chats when no
++        // passcode protects the app yet. It is dismissible and never
++        // blocks chats or typing - it is a nudge, not a lock. The
++        // button opens Settings -> Code Screen directly.
++        this->passcodeHintBanner_ = new QWidget(this);
++        auto *bannerLayout = new QHBoxLayout(this->passcodeHintBanner_);
++        bannerLayout->setContentsMargins(10, 4, 10, 4);
++        bannerLayout->setSpacing(8);
++        auto *hintLabel = new QLabel(
++            "No passcode set yet — anyone using this PC can type as "
++            "you. Turn on Code Screen and set a code to lock the app.",
++            this->passcodeHintBanner_);
++        hintLabel->setWordWrap(true);
++        bannerLayout->addWidget(hintLabel, 1);
++        auto *setCodeButton = new QPushButton("Set a passcode",
++                                              this->passcodeHintBanner_);
++        QObject::connect(setCodeButton, &QPushButton::clicked, this,
++                         [this] {
++                             getApp()->getWindows()->showSettingsDialog(
++                                 this,
++                                 SettingsDialogPreference::CodeScreen);
++                         });
++        bannerLayout->addWidget(setCodeButton);
++        auto *dismissButton =
++            new QPushButton("×", this->passcodeHintBanner_);
++        QObject::connect(dismissButton, &QPushButton::clicked, this,
++                         [this] {
++                             getSettings()
++                                 ->passcodeHintDismissed.setValue(true);
++                             this->refreshPasscodeHint();
++                         });
++        bannerLayout->addWidget(dismissButton);
++        layout->addWidget(this->passcodeHintBanner_);
++        this->refreshPasscodeHint();
++        // Keep the banner in sync if the settings change while open.
++        // Turning Code Screen off again or clearing the code resets
++        // the dismissal, so the hint comes back.
++        getSettings()->codeScreenEnabled.connect(
++            [this](bool) {
++                this->refreshPasscodeHint();
++            },
++            this->signalHolder_);
++        getSettings()->passcodeCode.connect(
++            [this](const QString &) {
++                this->refreshPasscodeHint();
++            },
++            this->signalHolder_);
++        getSettings()->passcodeHintDismissed.connect(
++            [this](bool) {
++                this->refreshPasscodeHint();
++            },
++            this->signalHolder_);
++    }
++
+     layout->addWidget(this->notebook_);
+     this->getLayoutContainer()->setLayout(layout);
+ 
+@@ -224,6 +303,76 @@ void Window::addLayout()
+ 
+     this->notebook_->setAllowUserTabManagement(true);
+     this->notebook_->setShowAddButton(true);
++
++    if (this->type_ == WindowType::Main)
++    {
++        // Phone home screen (OS-style hub): every chat tab is an app
++        // icon on it. The normal Chatterino tab bar is hidden - the
++        // home screen is the hub, chats live behind their app icons.
++        // The Home button in the status bar returns here.
++        this->notebook_->hideAllTabsAction->trigger();
++        this->homeScreen_ = new DeviceHomeScreen(this, this->notebook_);
++        this->homeScreen_->setGeometry(this->rect());
++        this->homeScreen_->refresh();
++        this->homeScreen_->show();
++        this->homeScreen_->raise();
++        QObject::connect(this->devicePhoneBar_,
++                         &DevicePhoneBar::homeRequested, this,
++                         [this] {
++                             this->showHomeScreen();
++                         });
++    }
++
++    if (this->type_ == WindowType::Main &&
++        DevicePasscodeScreen::lockActive())
++    {
++        // Code Screen lock: shown over the main window on launch,
++        // chats load underneath. Only when Code Screen is on AND a
++        // code has been set - if no code was ever set there is no lock
++        // screen at all and the app opens straight to chats.
++        this->passcodeScreen_ = new DevicePasscodeScreen(this);
++        this->passcodeScreen_->setGeometry(this->rect());
++        this->passcodeScreen_->raise();
++        this->passcodeScreen_->show();
++        QObject::connect(this->passcodeScreen_,
++                         &DevicePasscodeScreen::unlocked, this, [this] {
++                             this->passcodeScreen_ = nullptr;
++                         });
++    }
++}
++
++void Window::refreshPasscodeHint()
++{
++    if (this->passcodeHintBanner_ == nullptr)
++    {
++        return;
++    }
++    this->passcodeHintBanner_->setVisible(
++        DevicePasscodeScreen::hintVisible());
++}
++
++void Window::showHomeScreen()
++{
++    if (this->homeScreen_ == nullptr)
++    {
++        return;
++    }
++    this->homeScreen_->refresh();
++    this->homeScreen_->show();
++    this->homeScreen_->raise();
++}
++
++void Window::resizeEvent(QResizeEvent *event)
++{
++    BaseWindow::resizeEvent(event);
++    if (this->homeScreen_ != nullptr)
++    {
++        this->homeScreen_->setGeometry(this->rect());
++    }
++    if (this->passcodeScreen_ != nullptr)
++    {
++        this->passcodeScreen_->setGeometry(this->rect());
++    }
+ }
+ 
+ void Window::addCustomTitlebarButtons()
+diff --git a/src/widgets/Window.hpp b/src/widgets/Window.hpp
+index 706fbce60..b68e000da 100644
+--- a/src/widgets/Window.hpp
++++ b/src/widgets/Window.hpp
+@@ -17,6 +17,9 @@ class LabelButton;
+ class Theme;
+ class UpdateDialog;
+ class SplitNotebook;
++class DevicePhoneBar;
++class DevicePasscodeScreen;
++class DeviceHomeScreen;
+ class Channel;
+ 
+ /**
+@@ -44,8 +47,11 @@ protected:
+     void closeEvent(QCloseEvent *event) override;
+     bool event(QEvent *event) override;
+     void themeChangedEvent() override;
++    void resizeEvent(QResizeEvent *event) override;
+ 
+ private:
++    void refreshPasscodeHint();
++    void showHomeScreen();
+     void addCustomTitlebarButtons();
+     void addDebugStuff(
+         std::map<QString, std::function<QString(std::vector<QString>)>>
+@@ -58,6 +64,17 @@ private:
+     WindowType type_;
+ 
+     SplitNotebook *notebook_;
++    // Phone device styles, main window only (null on popup windows).
++    DevicePhoneBar *devicePhoneBar_ = nullptr;
++    // Code Screen: lock screen overlay (only when Code Screen is on
++    // and a code is set) and the dismissible "no passcode yet" hint
++    // banner above the chats. Both main window only.
++    DevicePasscodeScreen *passcodeScreen_ = nullptr;
++    QWidget *passcodeHintBanner_ = nullptr;
++    // Phone home screen (OS-style hub, main window only): every chat
++    // tab is an app icon on it. The app always lands here on launch,
++    // after the code screen if there is one.
++    DeviceHomeScreen *homeScreen_ = nullptr;
+     LabelButton *userLabel_ = nullptr;
+     std::shared_ptr<UpdateDialog> updateDialogHandle_;
+ 
+diff --git a/src/widgets/dialogs/SettingsDialog.cpp b/src/widgets/dialogs/SettingsDialog.cpp
+index 4a8ec6aab..cc7ba5fc4 100644
+--- a/src/widgets/dialogs/SettingsDialog.cpp
++++ b/src/widgets/dialogs/SettingsDialog.cpp
+@@ -18,6 +18,8 @@
+ #include "widgets/settingspages/CommandPage.hpp"
+ #include "widgets/settingspages/ExternalToolsPage.hpp"
+ #include "widgets/settingspages/FiltersPage.hpp"
++#include "widgets/settingspages/DeviceStylePage.hpp"
++#include "widgets/settingspages/CodeScreenPage.hpp"
+ #include "widgets/settingspages/GeneralPage.hpp"
+ #include "widgets/settingspages/HighlightingPage.hpp"
+ #include "widgets/settingspages/IgnoresPage.hpp"
+@@ -237,6 +239,8 @@ void SettingsDialog::addTabs()
+ 
+     // clang-format off
+     this->addTab([]{return new GeneralPage;},          "General",        ":/settings/about.svg", SettingsTabId::General);
++    this->addTab([]{return new DeviceStylePage;},     "Device Style",   ":/settings/about.svg");
++    this->addTab([]{return new CodeScreenPage;},      "Code Screen",    ":/settings/about.svg", SettingsTabId::CodeScreen);
+     this->ui_.tabContainer->addSpacing(16);
+     this->addTab([]{return new AccountsPage;},         "Accounts",       ":/settings/accounts.svg", SettingsTabId::Accounts);
+     this->addTab([]{return new NicknamesPage;},        "Nicknames",      ":/settings/accounts.svg");
+@@ -382,6 +386,11 @@ void SettingsDialog::showDialog(QWidget *parent,
+         }
+         break;
+ 
++        case SettingsDialogPreference::CodeScreen: {
++            instance->selectTab(SettingsTabId::CodeScreen);
++        }
++        break;
++
+         default:;
+     }
+ 
+diff --git a/src/widgets/dialogs/SettingsDialog.hpp b/src/widgets/dialogs/SettingsDialog.hpp
+index 840c2ee95..be2a4f2d4 100644
+--- a/src/widgets/dialogs/SettingsDialog.hpp
++++ b/src/widgets/dialogs/SettingsDialog.hpp
+@@ -36,6 +36,7 @@ enum class SettingsDialogPreference {
+     Highlights,
+     ModerationActions,
+     About,
++    CodeScreen,
+ };
+ 
+ class SettingsDialog : public BaseWindow
+diff --git a/src/widgets/helper/SettingsDialogTab.hpp b/src/widgets/helper/SettingsDialogTab.hpp
+index 9da1f4f67..9d07e4504 100644
+--- a/src/widgets/helper/SettingsDialogTab.hpp
++++ b/src/widgets/helper/SettingsDialogTab.hpp
+@@ -24,6 +24,7 @@ enum class SettingsTabId {
+     Highlights,
+     Moderation,
+     About,
++    CodeScreen,
+ };
+ 
+ class SettingsDialogTab : public BaseWidget
 diff --git a/src/widgets/settingspages/CodeScreenPage.cpp b/src/widgets/settingspages/CodeScreenPage.cpp
 new file mode 100644
 index 000000000..41bc18772

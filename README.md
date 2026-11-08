@@ -56,12 +56,30 @@ on restart, colours/theme/bubbles switch live.
   Settings → Appearance → Themes for the light/dark version of the iPhone
   look.
 
-## Messaging look
+## Messaging look — normal Chatterino, laid out like a messaging app
 
-Your own messages go on the **right** (your name on the right, logged-in
-`official_robust_clan`). Every other chatter's messages go on the
-**left**. This holds in the chat screen for both phones, on Twitch and
-on Kick.
+Tapping an app icon on the home screen opens that chat in **normal
+Chatterino format** — same input, same features — but laid out like a
+real messaging app, in **each** channel:
+
+- **Received on the LEFT, sent on the RIGHT**, for every channel.
+- Who goes on the **right** is decided **per channel, by checking the
+  account connected to the app for that channel's platform** — never by
+  a fixed username, and no name is hard-coded:
+  - **Twitch channel →** the Twitch account currently logged in to the
+    app (`accounts->twitch.getCurrent()`). Messages from *that* account
+    go right; everyone else goes left.
+  - **Kick channel →** the Kick account currently logged in to the app
+    (`accounts->kick.current()`). Messages from *that* account go
+    right; everyone else goes left.
+  - A Twitch login name does **not** count as own in a Kick channel,
+    and a Kick login name does **not** count as own in a Twitch
+    channel — the check is gated on the message's platform.
+  - **Logged out / anonymous for that platform → nobody goes right.**
+    Every message stays on the left until an account is connected.
+- The platform outline colours stay: purple outline on Twitch chats,
+  green outline on Kick chats, on both sides.
+- This holds in the chat screen for both phones (Fold and iPhone).
 
 ## Switching — the whole app changes
 
@@ -113,7 +131,7 @@ moderation or emote-provider code is changed.
 ## Files
 
 - `fold-iphone.patch` — the whole change, as a diff against clean
-  Chatterino7 `910b01d` (2,431 lines). Apply with
+  Chatterino7 `910b01d` (2,437 lines, 26 files). Apply with
   `git apply fold-iphone.patch`.
 - `build-fold-iphone.yml` — GitHub Actions workflow: Qt 6.9.3 / MSVC2022 /
   Conan 2.11.0 / Ninja, uploads `Chatterino7FoldiPhone.zip` and
