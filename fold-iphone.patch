@@ -1,6 +1,28 @@
+diff --git a/mocks/include/mocks/TwitchIrcServer.hpp b/mocks/include/mocks/TwitchIrcServer.hpp
+index 986c8e6..896877c 100644
+--- a/mocks/include/mocks/TwitchIrcServer.hpp
++++ b/mocks/include/mocks/TwitchIrcServer.hpp
+@@ -34,6 +34,17 @@ public:
+     {
+     }
+ 
++    void setChannelAnonymousRead(const QString &channelName,
++                                 bool anonymous) override
++    {
++    }
++
++    bool isChannelAnonymousRead(
++        const QString &channelName) const override
++    {
++        return false;
++    }
++
+     void sendRawMessage(const QString &rawMessage) override
+     {
+     }
 diff --git a/resources/themes/GalaxyFold.json b/resources/themes/GalaxyFold.json
 new file mode 100644
-index 000000000..6005c6224
+index 0000000..6005c62
 --- /dev/null
 +++ b/resources/themes/GalaxyFold.json
 @@ -0,0 +1,133 @@
@@ -139,7 +161,7 @@ index 000000000..6005c6224
 +}
 diff --git a/resources/themes/iPhoneDark.json b/resources/themes/iPhoneDark.json
 new file mode 100644
-index 000000000..1cecb97be
+index 0000000..1cecb97
 --- /dev/null
 +++ b/resources/themes/iPhoneDark.json
 @@ -0,0 +1,131 @@
@@ -276,7 +298,7 @@ index 000000000..1cecb97be
 +}
 diff --git a/resources/themes/iPhoneLight.json b/resources/themes/iPhoneLight.json
 new file mode 100644
-index 000000000..b615b02a9
+index 0000000..b615b02
 --- /dev/null
 +++ b/resources/themes/iPhoneLight.json
 @@ -0,0 +1,131 @@
@@ -412,7 +434,7 @@ index 000000000..b615b02a9
 +  }
 +}
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 40ebbad7e..f7e2b3224 100644
+index 40ebbad..f7e2b32 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -759,6 +759,12 @@ set(SOURCE_FILES
@@ -440,7 +462,7 @@ index 40ebbad7e..f7e2b3224 100644
          widgets/settingspages/ExternalToolsPage.hpp
          widgets/settingspages/FiltersPage.cpp
 diff --git a/src/messages/MessageFlag.hpp b/src/messages/MessageFlag.hpp
-index fee5998a6..c347d4bc5 100644
+index fee5998..c347d4b 100644
 --- a/src/messages/MessageFlag.hpp
 +++ b/src/messages/MessageFlag.hpp
 @@ -82,6 +82,13 @@ enum class MessageFlag : std::int64_t {
@@ -458,7 +480,7 @@ index fee5998a6..c347d4bc5 100644
  using MessageFlags = FlagsEnum<MessageFlag>;
  
 diff --git a/src/messages/layouts/MessageLayout.cpp b/src/messages/layouts/MessageLayout.cpp
-index b753bd9e9..cfbbf345e 100644
+index b753bd9..3d7602b 100644
 --- a/src/messages/layouts/MessageLayout.cpp
 +++ b/src/messages/layouts/MessageLayout.cpp
 @@ -5,7 +5,10 @@
@@ -584,14 +606,18 @@ index b753bd9e9..cfbbf345e 100644
  }  // namespace
  
  MessageLayout::MessageLayout(MessagePtr message)
-@@ -137,6 +238,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+@@ -137,6 +238,18 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
  
      auto messageFlags = this->message_->flags;
  
 +    // Phone device styles (layout-only): mark own messages on this local
 +    // copy only, so MessageLayoutContainer can right-align their lines.
-+    // this->message_->flags itself is never modified here.
-+    if (phoneStyleEnabled() && phoneIsOwnMessage(*this->message_))
++    // this->message_->flags itself is never modified here. In a split in
++    // per-chat anonymous mode nobody is "own": the chat is view-only, so
++    // every message stays on the left.
++    this->phoneOwnMessage_ = phoneStyleEnabled() && !ctx.phoneAnonymous &&
++                              phoneIsOwnMessage(*this->message_);
++    if (this->phoneOwnMessage_)
 +    {
 +        messageFlags.set(MessageFlag::PhoneOwnMessage);
 +    }
@@ -599,7 +625,7 @@ index b753bd9e9..cfbbf345e 100644
      if (this->flags.has(MessageLayoutFlag::Expanded) ||
          (ctx.flags.has(MessageElementFlag::ModeratorTools) &&
           !this->message_->flags.has(MessageFlag::Disabled)))
-@@ -155,6 +264,13 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+@@ -155,6 +268,13 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
      this->container_.beginLayout(ctx.width, this->scale_, this->imageScale_,
                                   messageFlags);
  
@@ -613,7 +639,7 @@ index b753bd9e9..cfbbf345e 100644
      for (const auto &element : this->message_->elements)
      {
          if (hideModerated && this->message_->flags.has(MessageFlag::Disabled))
-@@ -205,6 +321,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+@@ -205,6 +325,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
          }
  
          element->addToContainer(this->container_, ctx);
@@ -628,7 +654,7 @@ index b753bd9e9..cfbbf345e 100644
      }
  
      if (this->height_ != this->container_.getHeight())
-@@ -390,7 +514,77 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
+@@ -390,7 +518,79 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
          backgroundColor = QColor("#4A273D");
      }
  
@@ -649,7 +675,9 @@ index b753bd9e9..cfbbf345e 100644
 +        painter.fillRect(buffer->rect(), backgroundColor);
 +
 +        const qreal s = this->scale_ > 0 ? this->scale_ : 1;
-+        const bool isOwn = phoneIsOwnMessage(*this->message_);
++        // Decided during layout, which knew this split's anonymous
++        // state; painting reuses it instead of re-checking the account.
++        const bool isOwn = this->phoneOwnMessage_;
 +        const bool isFold = phoneIsFold();
 +        const QColor outline = phoneOutlineColor(*this->message_);
 +        QColor fill =
@@ -707,8 +735,25 @@ index b753bd9e9..cfbbf345e 100644
  
      // draw message
      this->container_.paintElements(painter, ctx);
+diff --git a/src/messages/layouts/MessageLayout.hpp b/src/messages/layouts/MessageLayout.hpp
+index 1050ad8..e8ad335 100644
+--- a/src/messages/layouts/MessageLayout.hpp
++++ b/src/messages/layouts/MessageLayout.hpp
+@@ -129,6 +129,12 @@ private:
+     std::unique_ptr<QPixmap> buffer_;
+     bool bufferValid_ = false;
+ 
++    // Phone device styles: whether this message is from the account
++    // connected for its channel, decided during actuallyLayout (which
++    // knows the split's anonymous state via the layout context).
++    // updateBuffer reuses it, because painting has no layout context.
++    bool phoneOwnMessage_ = false;
++
+     qreal height_ = 0;
+     int currentLayoutWidth_ = -1;
+     int layoutState_ = -1;
 diff --git a/src/messages/layouts/MessageLayoutContainer.cpp b/src/messages/layouts/MessageLayoutContainer.cpp
-index 79fa5135a..d58ca142d 100644
+index 79fa513..d58ca14 100644
 --- a/src/messages/layouts/MessageLayoutContainer.cpp
 +++ b/src/messages/layouts/MessageLayoutContainer.cpp
 @@ -183,6 +183,34 @@ void MessageLayoutContainer::breakLine()
@@ -746,8 +791,633 @@ index 79fa5135a..d58ca142d 100644
  
      for (size_t i = this->lineStart_; i < this->elements_.size(); i++)
      {
+diff --git a/src/messages/layouts/MessageLayoutContext.hpp b/src/messages/layouts/MessageLayoutContext.hpp
+index 571c322..faeeb98 100644
+--- a/src/messages/layouts/MessageLayoutContext.hpp
++++ b/src/messages/layouts/MessageLayoutContext.hpp
+@@ -94,6 +94,11 @@ struct MessageLayoutContext {
+ 
+     Channel *selectedChannel = nullptr;
+     const Message &message;
++
++    // Phone device styles: true when the split laying this message out
++    // is in per-chat anonymous mode. Own messages never go right in
++    // such a split - everybody stays on the left.
++    bool phoneAnonymous = false;
+ };
+ 
+ }  // namespace chatterino
+diff --git a/src/providers/twitch/IrcMessageHandler.cpp b/src/providers/twitch/IrcMessageHandler.cpp
+index d7a6c1c..cec2139 100644
+--- a/src/providers/twitch/IrcMessageHandler.cpp
++++ b/src/providers/twitch/IrcMessageHandler.cpp
+@@ -1093,6 +1093,15 @@ void IrcMessageHandler::handlePartMessage(Communi::IrcMessage *message)
+ 
+     if (ownUser)
+     {
++        // Phone device styles: when a channel is parked on the
++        // anonymous read connection, our own PART is the park itself,
++        // not a dropped connection or a ban - do not show the
++        // "unexpectedly dropped" message for it.
++        if (getApp()->getTwitch()->isChannelAnonymousRead(
++                channel->getName()))
++        {
++            return;
++        }
+         channel->addMessage(generateBannedMessage(false),
+                             MessageContext::Original);
+     }
+diff --git a/src/providers/twitch/TwitchIrcServer.cpp b/src/providers/twitch/TwitchIrcServer.cpp
+index 6c580b3..3b9bb99 100644
+--- a/src/providers/twitch/TwitchIrcServer.cpp
++++ b/src/providers/twitch/TwitchIrcServer.cpp
+@@ -148,6 +148,8 @@ TwitchIrcServer::TwitchIrcServer()
+               this, getSettings()->twitchReadConnectionMode ==
+                         TwitchReadConnectionMode::AnonymousParallel),
+           {})
++    , anonymousReadConnection_(
++          createTwitchConnectionPool(this, false, true), {})
+ {
+     // Initialize the connections
+     // XXX: don't create write connection if there is no separate write connection.
+@@ -172,6 +174,18 @@ TwitchIrcServer::TwitchIrcServer()
+         this->readConnection_->privateMessageReceived, [this](auto *msg) {
+             this->privateMessageReceived(msg);
+         });
++    // Phone device styles: messages arriving on the dedicated
++    // anonymous read pool go through the exact same handlers as the
++    // normal pool, so they land in the same channel objects.
++    this->signalHolder.managedConnect(
++        this->anonymousReadConnection_->messageReceived, [this](auto *msg) {
++            this->readConnectionMessageReceived(msg);
++        });
++    this->signalHolder.managedConnect(
++        this->anonymousReadConnection_->privateMessageReceived,
++        [this](auto *msg) {
++            this->privateMessageReceived(msg);
++        });
+ }
+ 
+ void TwitchIrcServer::initialize()
+@@ -277,7 +291,8 @@ void TwitchIrcServer::aboutToQuit()
+ }
+ 
+ void TwitchIrcServer::initializeConnection(IrcConnection *connection,
+-                                           ConnectionType type)
++                                           ConnectionType type,
++                                           bool forceAnonymous)
+ {
+     std::shared_ptr<TwitchAccount> account =
+         getApp()->getAccounts()->twitch.getCurrent();
+@@ -305,8 +320,9 @@ void TwitchIrcServer::initializeConnection(IrcConnection *connection,
+ 
+     bool anon = account->isAnon();
+     if (type == ConnectionType::Read &&
+-        getSettings()->twitchReadConnectionMode !=
+-            TwitchReadConnectionMode::Authenticated)
++        (forceAnonymous ||
++         getSettings()->twitchReadConnectionMode !=
++             TwitchReadConnectionMode::Authenticated))
+     {
+         username = ANONYMOUS_USERNAME;
+         oauthToken = {};
+@@ -1097,6 +1113,88 @@ void TwitchIrcServer::disconnect()
+ 
+     this->readConnection_->close();
+     this->writeConnection_->close();
++    // NOTE: the anonymous read pool is deliberately left open here.
++    // It does not depend on the connected account, so anonymous
++    // viewing survives account switches and reconnects of the normal
++    // pool. It closes when the server itself is destroyed.
++}
++
++void TwitchIrcServer::setChannelAnonymousRead(const QString &channelName,
++                                              bool anonymous)
++{
++    auto name = cleanChannelName(channelName);
++    if (name.isEmpty() || name.startsWith('/'))
++    {
++        return;
++    }
++
++    if (anonymous)
++    {
++        int count = this->anonymousReadChannels_.value(name, 0);
++        this->anonymousReadChannels_.insert(name, count + 1);
++        if (count > 0)
++        {
++            // Already parked by another split of the same channel.
++            return;
++        }
++        // Park it on the authenticated read pool FIRST, so messages
++        // are not delivered twice, then join it on the dedicated
++        // anonymous connection. The same channel object keeps
++        // receiving messages - only which connection delivers them
++        // changes - so the chat reloads as an anonymous viewer and a
++        // ban on the connected account stops blanking it.
++        this->readConnection_->partChannel(name);
++        this->anonymousReadConnection_->joinChannel(name);
++        if (auto chan = this->getChannelOrEmpty(name);
++            chan != Channel::getEmpty())
++        {
++            chan->addSystemMessage("Viewing this chat anonymously");
++        }
++        return;
++    }
++
++    int count = this->anonymousReadChannels_.value(name, 0);
++    if (count <= 0)
++    {
++        return;
++    }
++    if (count > 1)
++    {
++        // Another split of the same channel is still anonymous.
++        this->anonymousReadChannels_.insert(name, count - 1);
++        return;
++    }
++    this->anonymousReadChannels_.remove(name);
++    this->anonymousReadConnection_->partChannel(name);
++    this->readConnection_->joinChannel(name);
++    if (auto chan = this->getChannelOrEmpty(name);
++        chan != Channel::getEmpty())
++    {
++        chan->addSystemMessage("Back on your connected account");
++    }
++}
++
++bool TwitchIrcServer::isChannelAnonymousRead(
++    const QString &channelName) const
++{
++    return this->anonymousReadChannels_.contains(
++        cleanChannelName(channelName));
++}
++
++void TwitchIrcServer::forgetAnonymousReadChannel(const QString &channelName)
++{
++    auto name = cleanChannelName(channelName);
++    if (!this->anonymousReadChannels_.contains(name))
++    {
++        return;
++    }
++    // The channel object is gone (last split closed), so no split can
++    // still be viewing it anonymously. Drop the parked state so a
++    // later reopen of the same channel joins the normal pool again
++    // instead of staying stuck on the anonymous connection.
++    this->anonymousReadChannels_.remove(name);
++    this->anonymousReadConnection_->partChannel(name);
++    this->readConnection_->clearParkedChannel(name);
+ }
+ 
+ void TwitchIrcServer::sendMessage(const QString &channelName,
+@@ -1141,6 +1239,10 @@ ChannelPtr TwitchIrcServer::getOrAddChannel(const QString &dirtyChannelName)
+             qCDebug(chatterinoIrc) << "[TwitchIrcServer::addChannel]"
+                                    << channelName << "was destroyed";
+             this->channels.remove(channelName);
++            // Phone device styles: if the channel was parked on the
++            // anonymous connection, clear that state so a later reopen
++            // joins the normal pool again.
++            this->forgetAnonymousReadChannel(channelName);
+         });
+ 
+     // HACK(mm2pl): This prevents custom invalid twitch channels used by plugins from being joined
+diff --git a/src/providers/twitch/TwitchIrcServer.hpp b/src/providers/twitch/TwitchIrcServer.hpp
+index e5886e9..abe24fb 100644
+--- a/src/providers/twitch/TwitchIrcServer.hpp
++++ b/src/providers/twitch/TwitchIrcServer.hpp
+@@ -46,6 +46,17 @@ public:
+ 
+     virtual void connect() = 0;
+ 
++    // Phone device styles: move one channel's *reading* to a dedicated
++    // anonymous connection (justinfan, no logged-in account), or back
++    // to the normal read pool. Only that channel changes; every other
++    // channel keeps reading on the normal pool. A ban on the connected
++    // account does not blank a channel read anonymously - Twitch still
++    // delivers its messages to an anonymous viewer.
++    virtual void setChannelAnonymousRead(const QString &channelName,
++                                         bool anonymous) = 0;
++    virtual bool isChannelAnonymousRead(
++        const QString &channelName) const = 0;
++
+     virtual void sendRawMessage(const QString &rawMessage) = 0;
+ 
+     virtual ChannelPtr getOrAddChannel(const QString &dirtyChannelName) = 0;
+@@ -140,6 +151,16 @@ public:
+     void connect() override;
+     void disconnect();
+ 
++    // Phone device styles: see ITwitchIrcServer.
++    void setChannelAnonymousRead(const QString &channelName,
++                                 bool anonymous) override;
++    bool isChannelAnonymousRead(
++        const QString &channelName) const override;
++
++    // Phone device styles: drops all anonymous-read state for a
++    // channel whose object was destroyed (last split closed).
++    void forgetAnonymousReadChannel(const QString &channelName);
++
+     void sendMessage(const QString &channelName, const QString &message);
+     void sendRawMessage(const QString &rawMessage) override;
+ 
+@@ -172,8 +193,12 @@ public:
+     void initEventAPIs(BttvLiveUpdates *bttvLiveUpdates,
+                        SeventvEventAPI *seventvEventAPI) override;
+ 
++    // If  is set, the connection logs in as the
++    // anonymous user (justinfan) whatever the global read-connection
++    // mode says. Used by the dedicated anonymous read pool.
+     static void initializeConnection(IrcConnection *connection,
+-                                     ConnectionType type);
++                                     ConnectionType type,
++                                     bool forceAnonymous = false);
+ 
+ protected:
+     std::shared_ptr<Channel> createChannel(const QString &channelName);
+@@ -202,6 +227,19 @@ private:
+     QObjectPtr<IrcConnection> writeConnection_ = nullptr;
+     QObjectPtr<TwitchReadConnectionPool> readConnection_ = nullptr;
+ 
++    // Phone device styles: a second, always-anonymous read pool. It
++    // never auto-joins channels - single channels are joined on it on
++    // demand by setChannelAnonymousRead, one chat at a time. It is
++    // deliberately NOT closed by disconnect(): it does not depend on
++    // the connected account, so anonymous viewing survives account
++    // switches and reconnects of the normal pool.
++    QObjectPtr<TwitchReadConnectionPool> anonymousReadConnection_ = nullptr;
++
++    // Phone device styles: channel name -> how many splits are
++    // currently viewing it anonymously. Only the 1 -> 0 and 0 -> 1
++    // transitions move the channel between the two read pools.
++    QMap<QString, int> anonymousReadChannels_;
++
+     std::mutex connectionMutex_;
+ 
+     pajlada::Signals::SignalHolder signalHolder;
+diff --git a/src/providers/twitch/TwitchReadConnectionPool.cpp b/src/providers/twitch/TwitchReadConnectionPool.cpp
+index 1c7baf5..f57d69c 100644
+--- a/src/providers/twitch/TwitchReadConnectionPool.cpp
++++ b/src/providers/twitch/TwitchReadConnectionPool.cpp
+@@ -74,6 +74,9 @@ public:
+     void onChannelCreated(TwitchChannel &channel) override;
+     void reconnect() override;
+     void close() override;
++    void joinChannel(const QString &name) override;
++    void partChannel(const QString &name) override;
++    void clearParkedChannel(const QString &name) override;
+ 
+ private:
+     void onMessageReceived(Communi::IrcMessage *msg);
+@@ -91,6 +94,11 @@ private:
+     pajlada::Signals::SignalHolder signalHolder;
+     boost::unordered_flat_map<QString, std::weak_ptr<TwitchChannel>> channels;
+ 
++    // Phone device styles: channels joined on demand by the dedicated
++    // anonymous pool (which never gets onChannelCreated calls). They
++    // are not in `channels` above, so they are tracked separately.
++    QSet<QString> manualChannels_;
++
+     TwitchIrcServer *server;
+ };
+ 
+@@ -104,7 +112,8 @@ TwitchReadConnectionPoolSingle::TwitchReadConnectionPoolSingle(
+ 
+     // Apply a leaky bucket rate limiting to JOIN messages
+     auto actuallyJoin = [&](const QString &name) {
+-        if (!this->channels.contains(name))
++        if (!this->channels.contains(name) &&
++            !this->manualChannels_.contains(name))
+         {
+             return;
+         }
+@@ -149,8 +158,16 @@ TwitchReadConnectionPoolSingle::TwitchReadConnectionPoolSingle(
+ 
+ void TwitchReadConnectionPoolSingle::onChannelCreated(TwitchChannel &channel)
+ {
++    if (this->forceAnonymousRead())
++    {
++        // Phone device styles: the dedicated anonymous pool never
++        // auto-joins channels - they are only joined on demand through
++        // joinChannel, one chat at a time.
++        return;
++    }
+     this->channels.emplace(channel.getName(), channel.weakFromThis());
+-    if (this->connection->isConnected())
++    if (this->connection->isConnected() &&
++        !this->isChannelParked(channel.getName()))
+     {
+         this->joinBucket->send(channel.getName());
+     }
+@@ -166,7 +183,8 @@ void TwitchReadConnectionPoolSingle::reconnect()
+ {
+     this->connection->close();
+     TwitchIrcServer::initializeConnection(
+-        this->connection.get(), TwitchIrcServer::ConnectionType::Read);
++        this->connection.get(), TwitchIrcServer::ConnectionType::Read,
++        this->forceAnonymousRead());
+ }
+ 
+ void TwitchReadConnectionPoolSingle::close()
+@@ -174,6 +192,62 @@ void TwitchReadConnectionPoolSingle::close()
+     this->connection->close();
+ }
+ 
++void TwitchReadConnectionPoolSingle::joinChannel(const QString &name)
++{
++    if (this->forceAnonymousRead())
++    {
++        // Phone device styles: join this one channel on the anonymous
++        // connection. If we are not connected yet, connect first -
++        // onConnected() joins everything in manualChannels_.
++        this->manualChannels_.insert(name);
++        if (this->connection->isConnected())
++        {
++            this->joinBucket->send(name);
++        }
++        else
++        {
++            this->reconnect();
++        }
++        return;
++    }
++    this->parkedChannels_.remove(name);
++    if (!this->channels.contains(name))
++    {
++        return;
++    }
++    if (this->connection->isConnected())
++    {
++        this->joinBucket->send(name);
++    }
++    // Not connected: onConnected() joins every unparked channel.
++}
++
++void TwitchReadConnectionPoolSingle::partChannel(const QString &name)
++{
++    if (this->forceAnonymousRead())
++    {
++        this->manualChannels_.remove(name);
++    }
++    else
++    {
++        // Park it: remember it, so a reconnect does not re-join it on
++        // this (authenticated) connection, and drop any JOIN for it
++        // still waiting in the rate-limit bucket.
++        this->parkedChannels_.insert(name);
++        this->joinBucket->discard(name);
++    }
++    if (this->connection->isConnected())
++    {
++        this->connection->sendRaw("PART #" + name);
++    }
++}
++
++void TwitchReadConnectionPoolSingle::clearParkedChannel(const QString &name)
++{
++    this->parkedChannels_.remove(name);
++    this->manualChannels_.remove(name);
++}
++
+ void TwitchReadConnectionPoolSingle::onMessageReceived(Communi::IrcMessage *msg)
+ {
+     if (msg->type() == Communi::IrcMessage::Type::Private)
+@@ -215,11 +289,21 @@ void TwitchReadConnectionPoolSingle::onConnected()
+         return visible.contains(chan->getName());
+     });
+ 
+-    // join channels
++    // join channels - parked ones stay off this connection, they are
++    // being read anonymously instead
+     for (const auto &channel : activeChannels)
+     {
++        if (this->isChannelParked(channel->getName()))
++        {
++            continue;
++        }
+         this->joinBucket->send(channel->getName());
+     }
++    // Phone device styles: channels the anonymous pool was asked for.
++    for (const auto &name : this->manualChannels_)
++    {
++        this->joinBucket->send(name);
++    }
+ 
+     appendConnectedMessage(activeChannels);
+ }
+@@ -252,6 +336,16 @@ void TwitchReadConnectionPoolSingle::markChannelsConnected()
+             c->markConnected();
+         }
+     }
++    // Phone device styles: channels joined on demand by the anonymous
++    // pool are not in `channels` above.
++    for (const auto &name : this->manualChannels_)
++    {
++        if (auto c = this->server->getChannelOrEmpty(name);
++            c != Channel::getEmpty())
++        {
++            c->markConnected();
++        }
++    }
+ }
+ 
+ // MARK: Multi
+@@ -272,6 +366,9 @@ public:
+     void onChannelCreated(TwitchChannel &channel) override;
+     void reconnect() override;
+     void close() override;
++    void joinChannel(const QString &name) override;
++    void partChannel(const QString &name) override;
++    void clearParkedChannel(const QString &name) override;
+ 
+ private:
+     struct Connection {
+@@ -323,7 +420,8 @@ void TwitchReadConnectionPoolMulti::onChannelCreated(TwitchChannel &channel)
+     auto [conn, created] = this->getOrCreate();
+     this->channels.emplace(channel.getName(), conn->id);
+     conn->channels.emplace(channel.getName(), channel.weakFromThis());
+-    if (conn->connection.isConnected())
++    if (conn->connection.isConnected() &&
++        !this->isChannelParked(channel.getName()))
+     {
+         qCDebug(chatterinoIrc) << "[read] joining" << channel.getName();
+         conn->connection.sendRaw("JOIN #" + channel.getName());
+@@ -370,6 +468,52 @@ void TwitchReadConnectionPoolMulti::close()
+     }
+ }
+ 
++void TwitchReadConnectionPoolMulti::joinChannel(const QString &name)
++{
++    this->parkedChannels_.remove(name);
++    auto it = this->channels.find(name);
++    if (it == this->channels.end())
++    {
++        return;
++    }
++    auto connIt = this->connections.find(it->second);
++    if (connIt == this->connections.end())
++    {
++        return;
++    }
++    if (connIt->second->connection.isConnected())
++    {
++        connIt->second->connection.sendRaw("JOIN #" + name);
++    }
++    // Not connected: onConnected() joins every unparked channel.
++}
++
++void TwitchReadConnectionPoolMulti::partChannel(const QString &name)
++{
++    // Park it: remember it, so a reconnect does not re-join it on
++    // this (authenticated) connection.
++    this->parkedChannels_.insert(name);
++    auto it = this->channels.find(name);
++    if (it == this->channels.end())
++    {
++        return;
++    }
++    auto connIt = this->connections.find(it->second);
++    if (connIt == this->connections.end())
++    {
++        return;
++    }
++    if (connIt->second->connection.isConnected())
++    {
++        connIt->second->connection.sendRaw("PART #" + name);
++    }
++}
++
++void TwitchReadConnectionPoolMulti::clearParkedChannel(const QString &name)
++{
++    this->parkedChannels_.remove(name);
++}
++
+ std::pair<TwitchReadConnectionPoolMulti::Connection *, bool>
+     TwitchReadConnectionPoolMulti::getOrCreate()
+ {
+@@ -474,7 +618,8 @@ void TwitchReadConnectionPoolMulti::Connection::reconnect()
+ {
+     this->connection.close();
+     TwitchIrcServer::initializeConnection(
+-        &this->connection, TwitchIrcServer::ConnectionType::Read);
++        &this->connection, TwitchIrcServer::ConnectionType::Read,
++        this->parent->forceAnonymousRead());
+ }
+ 
+ void TwitchReadConnectionPoolMulti::Connection::close()
+@@ -494,9 +639,14 @@ void TwitchReadConnectionPoolMulti::Connection::onConnected()
+         }
+     }
+ 
+-    // join channels
++    // join channels - parked ones stay off this connection, they are
++    // being read anonymously instead
+     for (const auto &channel : activeChannels)
+     {
++        if (this->parent->isChannelParked(channel->getName()))
++        {
++            continue;
++        }
+         qCDebug(chatterinoIrc) << "[read] joining" << channel->getName();
+         this->connection.sendRaw("JOIN #" + channel->getName());
+     }
+@@ -537,13 +687,20 @@ void TwitchReadConnectionPoolMulti::Connection::markChannelsConnected()
+ // MARK: Selection
+ 
+ TwitchReadConnectionPool *createTwitchConnectionPool(TwitchIrcServer *parent,
+-                                                     bool multi)
++                                                     bool multi,
++                                                     bool forceAnonymous)
+ {
++    TwitchReadConnectionPool *pool = nullptr;
+     if (multi)
+     {
+-        return new TwitchReadConnectionPoolMulti(parent);
++        pool = new TwitchReadConnectionPoolMulti(parent);
++    }
++    else
++    {
++        pool = new TwitchReadConnectionPoolSingle(parent);
+     }
+-    return new TwitchReadConnectionPoolSingle(parent);
++    pool->setForceAnonymousRead(forceAnonymous);
++    return pool;
+ }
+ 
+ }  // namespace chatterino
+diff --git a/src/providers/twitch/TwitchReadConnectionPool.hpp b/src/providers/twitch/TwitchReadConnectionPool.hpp
+index 93f69cb..47dea74 100644
+--- a/src/providers/twitch/TwitchReadConnectionPool.hpp
++++ b/src/providers/twitch/TwitchReadConnectionPool.hpp
+@@ -3,6 +3,8 @@
+ #include <IrcMessage>
+ #include <pajlada/signals/signal.hpp>
+ #include <QObject>
++#include <QSet>
++#include <QString>
+ 
+ namespace chatterino {
+ 
+@@ -18,15 +20,57 @@ public:
+     virtual void reconnect() = 0;
+     virtual void close() = 0;
+ 
++    // Phone device styles: join / part one channel on this pool only.
++    // Used to move a single channel between the normal (authenticated)
++    // read pool and the dedicated anonymous read pool, so a ban on the
++    // connected account does not blank that one chat. The channel
++    // object itself is untouched - only which connection delivers its
++    // messages changes.
++    virtual void joinChannel(const QString &name) = 0;
++    virtual void partChannel(const QString &name) = 0;
++
++    // Drops the "parked" mark for `name` without joining it. Used when
++    // a channel object is destroyed while parked, so a later reopen of
++    // the same channel joins the normal pool again.
++    virtual void clearParkedChannel(const QString &name) = 0;
++
++    // True when this pool must log in as the anonymous user
++    // (justinfan) instead of the connected account, whatever the
++    // global read-connection mode says. Only the dedicated anonymous
++    // pool sets this.
++    [[nodiscard]] bool forceAnonymousRead() const
++    {
++        return this->forceAnonymousRead_;
++    }
++    void setForceAnonymousRead(bool value)
++    {
++        this->forceAnonymousRead_ = value;
++    }
++
+     pajlada::Signals::Signal<Communi::IrcMessage *> messageReceived;
+     pajlada::Signals::Signal<Communi::IrcPrivateMessage *>
+         privateMessageReceived;
++
++protected:
++    // Channels parted off this pool for anonymous viewing. They are
++    // skipped when the pool (re)connects and joins its channels, so a
++    // reconnect does not undo the park and deliver every message twice.
++    QSet<QString> parkedChannels_;
++
++    [[nodiscard]] bool isChannelParked(const QString &name) const
++    {
++        return this->parkedChannels_.contains(name);
++    }
++
++private:
++    bool forceAnonymousRead_ = false;
+ };
+ 
+ class TwitchReadConnectionPoolSingle;
+ class TwitchReadConnectionPoolMulti;
+ 
+ TwitchReadConnectionPool *createTwitchConnectionPool(TwitchIrcServer *parent,
+-                                                     bool multi);
++                                                     bool multi,
++                                                     bool forceAnonymous = false);
+ 
+ }  // namespace chatterino
 diff --git a/src/singletons/Settings.hpp b/src/singletons/Settings.hpp
-index afb026620..df2b5771d 100644
+index afb0266..df2b577 100644
 --- a/src/singletons/Settings.hpp
 +++ b/src/singletons/Settings.hpp
 @@ -246,6 +246,12 @@ public:
@@ -790,7 +1460,7 @@ index afb026620..df2b5771d 100644
          "/appearance/tabVisibility",
          NotebookTabVisibility::AllTabs,
 diff --git a/src/singletons/Theme.cpp b/src/singletons/Theme.cpp
-index 3e499b9f2..878a1f671 100644
+index 3e499b9..878a1f6 100644
 --- a/src/singletons/Theme.cpp
 +++ b/src/singletons/Theme.cpp
 @@ -294,6 +294,24 @@ const std::vector<ThemeDescriptor> Theme::builtInThemes{
@@ -819,7 +1489,7 @@ index 3e499b9f2..878a1f671 100644
          .key = "Black",
          .path = ":/themes/Black.json",
 diff --git a/src/singletons/Theme.hpp b/src/singletons/Theme.hpp
-index ddfb34a3a..a0d856af4 100644
+index ddfb34a..a0d856a 100644
 --- a/src/singletons/Theme.hpp
 +++ b/src/singletons/Theme.hpp
 @@ -178,7 +178,7 @@ public:
@@ -832,7 +1502,7 @@ index ddfb34a3a..a0d856af4 100644
                                          "Light"};
      QStringSetting darkSystemThemeName{"/appearance/theme/darkSystem", "Dark"};
 diff --git a/src/singletons/WindowManager.cpp b/src/singletons/WindowManager.cpp
-index a1a2e9f77..f4941e272 100644
+index a1a2e9f..f4941e2 100644
 --- a/src/singletons/WindowManager.cpp
 +++ b/src/singletons/WindowManager.cpp
 @@ -142,6 +142,7 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
@@ -867,9 +1537,41 @@ index a1a2e9f77..f4941e272 100644
      {
          flags.set(MEF::Timestamp);
      }
+diff --git a/src/util/RatelimitBucket.cpp b/src/util/RatelimitBucket.cpp
+index bddafec..9c37a43 100644
+--- a/src/util/RatelimitBucket.cpp
++++ b/src/util/RatelimitBucket.cpp
+@@ -28,6 +28,11 @@ void RatelimitBucket::send(QString channel)
+     }
+ }
+ 
++void RatelimitBucket::discard(const QString &channel)
++{
++    this->queue_.removeAll(channel);
++}
++
+ void RatelimitBucket::handleOne()
+ {
+     if (this->queue_.isEmpty())
+diff --git a/src/util/RatelimitBucket.hpp b/src/util/RatelimitBucket.hpp
+index 9721e8b..639e148 100644
+--- a/src/util/RatelimitBucket.hpp
++++ b/src/util/RatelimitBucket.hpp
+@@ -20,6 +20,11 @@ public:
+ 
+     void send(QString channel);
+ 
++    /// Removes every queued entry for `channel` that has not run yet.
++    /// Used when a channel is parked off a connection before its
++    /// delayed JOIN fires, so it is not re-joined behind our back.
++    void discard(const QString &channel);
++
+ private:
+     /**
+      * @brief budget_ denotes the amount of calls that can be handled before we need to wait for the cooldown
 diff --git a/src/widgets/DeviceHomeScreen.cpp b/src/widgets/DeviceHomeScreen.cpp
 new file mode 100644
-index 000000000..6f6787861
+index 0000000..6f67878
 --- /dev/null
 +++ b/src/widgets/DeviceHomeScreen.cpp
 @@ -0,0 +1,213 @@
@@ -1088,7 +1790,7 @@ index 000000000..6f6787861
 +}  // namespace chatterino
 diff --git a/src/widgets/DeviceHomeScreen.hpp b/src/widgets/DeviceHomeScreen.hpp
 new file mode 100644
-index 000000000..804eb1ad4
+index 0000000..804eb1a
 --- /dev/null
 +++ b/src/widgets/DeviceHomeScreen.hpp
 @@ -0,0 +1,61 @@
@@ -1155,7 +1857,7 @@ index 000000000..804eb1ad4
 +}  // namespace chatterino
 diff --git a/src/widgets/DevicePasscode.cpp b/src/widgets/DevicePasscode.cpp
 new file mode 100644
-index 000000000..b10abd34f
+index 0000000..b10abd3
 --- /dev/null
 +++ b/src/widgets/DevicePasscode.cpp
 @@ -0,0 +1,329 @@
@@ -1490,7 +2192,7 @@ index 000000000..b10abd34f
 +}  // namespace chatterino
 diff --git a/src/widgets/DevicePasscode.hpp b/src/widgets/DevicePasscode.hpp
 new file mode 100644
-index 000000000..fbd47667b
+index 0000000..fbd4766
 --- /dev/null
 +++ b/src/widgets/DevicePasscode.hpp
 @@ -0,0 +1,79 @@
@@ -1575,7 +2277,7 @@ index 000000000..fbd47667b
 +}  // namespace chatterino
 diff --git a/src/widgets/DevicePhone.cpp b/src/widgets/DevicePhone.cpp
 new file mode 100644
-index 000000000..b63f2c802
+index 0000000..b63f2c8
 --- /dev/null
 +++ b/src/widgets/DevicePhone.cpp
 @@ -0,0 +1,128 @@
@@ -1709,7 +2411,7 @@ index 000000000..b63f2c802
 +}  // namespace chatterino
 diff --git a/src/widgets/DevicePhone.hpp b/src/widgets/DevicePhone.hpp
 new file mode 100644
-index 000000000..49cd18709
+index 0000000..49cd187
 --- /dev/null
 +++ b/src/widgets/DevicePhone.hpp
 @@ -0,0 +1,60 @@
@@ -1774,7 +2476,7 @@ index 000000000..49cd18709
 +
 +}  // namespace chatterino
 diff --git a/src/widgets/Window.cpp b/src/widgets/Window.cpp
-index a013e705f..9a4e927a7 100644
+index a013e70..9a4e927 100644
 --- a/src/widgets/Window.cpp
 +++ b/src/widgets/Window.cpp
 @@ -4,6 +4,10 @@
@@ -1968,7 +2670,7 @@ index a013e705f..9a4e927a7 100644
  
  void Window::addCustomTitlebarButtons()
 diff --git a/src/widgets/Window.hpp b/src/widgets/Window.hpp
-index 706fbce60..b68e000da 100644
+index 706fbce..b68e000 100644
 --- a/src/widgets/Window.hpp
 +++ b/src/widgets/Window.hpp
 @@ -17,6 +17,9 @@ class LabelButton;
@@ -2012,7 +2714,7 @@ index 706fbce60..b68e000da 100644
      std::shared_ptr<UpdateDialog> updateDialogHandle_;
  
 diff --git a/src/widgets/dialogs/SettingsDialog.cpp b/src/widgets/dialogs/SettingsDialog.cpp
-index 4a8ec6aab..cc7ba5fc4 100644
+index 4a8ec6a..cc7ba5f 100644
 --- a/src/widgets/dialogs/SettingsDialog.cpp
 +++ b/src/widgets/dialogs/SettingsDialog.cpp
 @@ -18,6 +18,8 @@
@@ -2046,7 +2748,7 @@ index 4a8ec6aab..cc7ba5fc4 100644
      }
  
 diff --git a/src/widgets/dialogs/SettingsDialog.hpp b/src/widgets/dialogs/SettingsDialog.hpp
-index 840c2ee95..be2a4f2d4 100644
+index 840c2ee..be2a4f2 100644
 --- a/src/widgets/dialogs/SettingsDialog.hpp
 +++ b/src/widgets/dialogs/SettingsDialog.hpp
 @@ -36,6 +36,7 @@ enum class SettingsDialogPreference {
@@ -2057,8 +2759,52 @@ index 840c2ee95..be2a4f2d4 100644
  };
  
  class SettingsDialog : public BaseWindow
+diff --git a/src/widgets/helper/ChannelView.cpp b/src/widgets/helper/ChannelView.cpp
+index 3f8cff8..bcb2b18 100644
+--- a/src/widgets/helper/ChannelView.cpp
++++ b/src/widgets/helper/ChannelView.cpp
+@@ -757,6 +757,9 @@ void ChannelView::layoutVisibleMessages(
+                                   static_cast<float>(this->devicePixelRatio()),
+                     .selectedChannel = selectedChannel,
+                     .message = *message->getMessage(),
++                    .phoneAnonymous =
++                        this->split_ != nullptr &&
++                        this->split_->isPhoneAnonymous(),
+                 },
+                 this->bufferInvalidationQueued_);
+ 
+@@ -803,6 +806,9 @@ void ChannelView::updateScrollbar(const std::vector<MessageLayoutPtr> &messages,
+                               static_cast<float>(this->devicePixelRatio()),
+                 .selectedChannel = selectedChannel,
+                 .message = *message->getMessage(),
++                .phoneAnonymous =
++                    this->split_ != nullptr &&
++                    this->split_->isPhoneAnonymous(),
+             },
+             false);
+ 
+@@ -2018,6 +2024,9 @@ void ChannelView::wheelEvent(QWheelEvent *event)
+                                 static_cast<float>(this->devicePixelRatio()),
+                             .selectedChannel = selectedChannel,
+                             .message = *snapshot[i - 1]->getMessage(),
++                            .phoneAnonymous =
++                                this->split_ != nullptr &&
++                                this->split_->isPhoneAnonymous(),
+                         },
+                         false);
+                     scrollFactor = 1;
+@@ -2063,6 +2072,9 @@ void ChannelView::wheelEvent(QWheelEvent *event)
+                                 static_cast<float>(this->devicePixelRatio()),
+                             .selectedChannel = selectedChannel,
+                             .message = *snapshot[i + 1]->getMessage(),
++                            .phoneAnonymous =
++                                this->split_ != nullptr &&
++                                this->split_->isPhoneAnonymous(),
+                         },
+                         false);
+ 
 diff --git a/src/widgets/helper/SettingsDialogTab.hpp b/src/widgets/helper/SettingsDialogTab.hpp
-index 9da1f4f67..9d07e4504 100644
+index 9da1f4f..9d07e45 100644
 --- a/src/widgets/helper/SettingsDialogTab.hpp
 +++ b/src/widgets/helper/SettingsDialogTab.hpp
 @@ -24,6 +24,7 @@ enum class SettingsTabId {
@@ -2071,7 +2817,7 @@ index 9da1f4f67..9d07e4504 100644
  class SettingsDialogTab : public BaseWidget
 diff --git a/src/widgets/settingspages/CodeScreenPage.cpp b/src/widgets/settingspages/CodeScreenPage.cpp
 new file mode 100644
-index 000000000..41bc18772
+index 0000000..41bc187
 --- /dev/null
 +++ b/src/widgets/settingspages/CodeScreenPage.cpp
 @@ -0,0 +1,166 @@
@@ -2243,7 +2989,7 @@ index 000000000..41bc18772
 +}  // namespace chatterino
 diff --git a/src/widgets/settingspages/CodeScreenPage.hpp b/src/widgets/settingspages/CodeScreenPage.hpp
 new file mode 100644
-index 000000000..b4a90fe7c
+index 0000000..b4a90fe
 --- /dev/null
 +++ b/src/widgets/settingspages/CodeScreenPage.hpp
 @@ -0,0 +1,42 @@
@@ -2291,7 +3037,7 @@ index 000000000..b4a90fe7c
 +}  // namespace chatterino
 diff --git a/src/widgets/settingspages/DeviceStylePage.cpp b/src/widgets/settingspages/DeviceStylePage.cpp
 new file mode 100644
-index 000000000..ae0fd1140
+index 0000000..ae0fd11
 --- /dev/null
 +++ b/src/widgets/settingspages/DeviceStylePage.cpp
 @@ -0,0 +1,99 @@
@@ -2396,7 +3142,7 @@ index 000000000..ae0fd1140
 +}  // namespace chatterino
 diff --git a/src/widgets/settingspages/DeviceStylePage.hpp b/src/widgets/settingspages/DeviceStylePage.hpp
 new file mode 100644
-index 000000000..d23b98101
+index 0000000..d23b981
 --- /dev/null
 +++ b/src/widgets/settingspages/DeviceStylePage.hpp
 @@ -0,0 +1,35 @@
@@ -2435,3 +3181,282 @@ index 000000000..d23b98101
 +};
 +
 +}  // namespace chatterino
+diff --git a/src/widgets/splits/Split.cpp b/src/widgets/splits/Split.cpp
+index 9015f1d..65e0940 100644
+--- a/src/widgets/splits/Split.cpp
++++ b/src/widgets/splits/Split.cpp
+@@ -8,6 +8,7 @@
+ #include "common/Common.hpp"
+ #include "common/QLogging.hpp"
+ #include "controllers/accounts/AccountController.hpp"
++#include "messages/layouts/MessageLayout.hpp"
+ #include "controllers/commands/Command.hpp"
+ #include "controllers/commands/CommandController.hpp"
+ #include "controllers/hotkeys/HotkeyController.hpp"
+@@ -724,6 +725,13 @@ PinnedMessageWidget *Split::getPinnedBanner() const
+ 
+ void Split::updateInputPlaceholder()
+ {
++    // Phone device styles: an anonymous chat is view-only, so its
++    // input never shows a "Send message as ..." placeholder.
++    if (this->phoneAnonymous_)
++    {
++        this->input_->setPlaceholderText("Anonymous mode - view only");
++        return;
++    }
+     auto channel = this->getChannel();
+     if (auto *multiChannel = dynamic_cast<MultiChannel *>(channel.get()))
+     {
+@@ -879,6 +887,14 @@ ChannelPtr Split::getSelectedChannel() const
+ 
+ void Split::setChannel(IndirectChannel newChannel)
+ {
++    // Phone device styles: anonymous mode is per chat, so switching
++    // this split to a different channel drops it. Reconnects pass the
++    // same channel back in, so they keep the state.
++    if (this->phoneAnonymous_ && newChannel.get() != this->channel_.get())
++    {
++        this->setPhoneAnonymous(false);
++    }
++
+     this->channelSignalHolder_.clear();
+     this->input_->setSendWaitStatus("");
+ 
+@@ -1004,6 +1020,85 @@ void Split::updateChannelConnections()
+     }
+ }
+ 
++bool Split::isPhoneAnonymous() const
++{
++    return this->phoneAnonymous_;
++}
++
++void Split::setPhoneAnonymous(bool value)
++{
++    if (this->phoneAnonymous_ == value)
++    {
++        return;
++    }
++    this->phoneAnonymous_ = value;
++    this->applyPhoneAnonymousState();
++    this->reloadPhoneAnonymousChannel();
++
++    // Messages already on screen were laid out with the old state
++    // (own messages on the right). Force them to lay out again so an
++    // anonymous chat shows everybody on the left, and turning it off
++    // puts the connected account's messages back on the right.
++    for (const auto &layout : this->view_->getMessagesSnapshot())
++    {
++        layout->flags.set(MessageLayoutFlag::RequiresLayout);
++    }
++    this->view_->queueLayout();
++}
++
++void Split::reloadPhoneAnonymousChannel()
++{
++    // Phone device styles: anonymous mode actually reloads this
++    // chat as an anonymous viewer, it does not just hide the typing
++    // box. The channel is parked off the authenticated read
++    // connection and joined on a dedicated anonymous one, so a ban on
++    // the connected account stops blanking the chat and the messages
++    // flow in, view-only. Toggling off joins it back on the normal
++    // connection. Only this split's channel moves - every other chat
++    // is untouched. Kick needs no reload: its chat feed is public and
++    // never uses the login to receive messages, so a Kick ban never
++    // blanked the chat in the first place.
++    auto *app = getApp();
++    if (app == nullptr)
++    {
++        return;
++    }
++    auto *channel = this->getChannel().get();
++    if (channel == nullptr || !channel->isTwitchChannel())
++    {
++        return;
++    }
++    if (auto *twitch = app->getTwitch())
++    {
++        twitch->setChannelAnonymousRead(channel->getName(),
++                                        this->phoneAnonymous_);
++    }
++}
++
++void Split::applyPhoneAnonymousState()
++{
++    if (this->input_ == nullptr)
++    {
++        return;
++    }
++    // View-only for THIS split only: the typing box is disabled, so
++    // nothing can be sent as the connected account from this chat.
++    // Other splits keep their own input untouched.
++    this->input_->setEnabled(!this->phoneAnonymous_);
++    if (this->phoneAnonymous_)
++    {
++        this->input_->setPlaceholderText("Anonymous mode - view only");
++    }
++    else
++    {
++        this->updateInputPlaceholder();
++    }
++    if (this->header_ != nullptr)
++    {
++        this->header_->updateAnonButton();
++    }
++}
++
+ void Split::setModerationMode(bool value)
+ {
+     this->moderationMode_ = value;
+diff --git a/src/widgets/splits/Split.hpp b/src/widgets/splits/Split.hpp
+index cc877d1..0bf2077 100644
+--- a/src/widgets/splits/Split.hpp
++++ b/src/widgets/splits/Split.hpp
+@@ -67,6 +67,14 @@ public:
+     void setFilters(const QList<QUuid> ids);
+     QList<QUuid> getFilters() const;
+ 
++    // Phone device styles: per-chat anonymous mode. Each split (chat)
++    // has its own button in its header; turning it on makes ONLY this
++    // chat view-only (its input is disabled and its own messages stop
++    // going right) and never touches any other chat. In-memory only:
++    // closing the chat drops the state.
++    [[nodiscard]] bool isPhoneAnonymous() const;
++    void setPhoneAnonymous(bool value);
++
+     void setModerationMode(bool value);
+     bool getModerationMode() const;
+ 
+@@ -164,8 +172,22 @@ private:
+ 
+     void updateChannelConnections();
+ 
++    // Applies the current phoneAnonymous_ value to this split's input
++    // box (disabled + "view only" placeholder when on) and header
++    // button. Called by setPhoneAnonymous and when the channel changes.
++    void applyPhoneAnonymousState();
++
++    // Phone device styles: (un)loads this split's channel on the
++    // anonymous read connection, so a ban on the connected account does
++    // not blank the chat. Twitch only - Kick's chat feed is public and
++    // never uses the login to receive messages, so it needs no reload.
++    void reloadPhoneAnonymousChannel();
++
+     IndirectChannel channel_;
+ 
++    // Phone device styles: anonymous mode for THIS split only.
++    bool phoneAnonymous_ = false;
++
+     bool moderationMode_{};
+     bool isTopRightSplit_{};
+ 
+diff --git a/src/widgets/splits/SplitHeader.cpp b/src/widgets/splits/SplitHeader.cpp
+index f631396..ca989b7 100644
+--- a/src/widgets/splits/SplitHeader.cpp
++++ b/src/widgets/splits/SplitHeader.cpp
+@@ -394,6 +394,17 @@ void SplitHeader::initializeLayout()
+                                        },
+                                        this);
+ 
++    // Phone device styles: per-chat anonymous-mode button. It lives in
++    // this split's header, so every chat has its own, and tapping it
++    // only ever toggles anonymous mode for THIS chat - other chats keep
++    // their normal connected account and keep working as usual.
++    this->anonButton_ = new LabelButton(QStringLiteral("Anon"), this);
++    this->anonButton_->setToolTip(
++        QStringLiteral("Anonymous mode for this chat only - tap to watch "
++                       "this chat without typing as your account. Other "
++                       "chats are not affected."));
++    this->updateAnonButton();
++
+     this->dropdownButton_ =
+         new DrawnButton(DrawnButton::Symbol::Kebab, {}, this);
+ 
+@@ -427,6 +438,8 @@ void SplitHeader::initializeLayout()
+         }),
+         // pin indicator
+         this->pinButton_,
++        // per-chat anonymous mode (this chat only)
++        this->anonButton_,
+         // moderator
+         this->moderationButton_,
+         // chatter list
+@@ -479,6 +492,10 @@ void SplitHeader::initializeLayout()
+         this->split_->togglePinnedBanner();
+     });
+ 
++    QObject::connect(this->anonButton_, &Button::leftClicked, this, [this]() {
++        this->split_->setPhoneAnonymous(!this->split_->isPhoneAnonymous());
++    });
++
+     QObject::connect(this->addButton_, &Button::leftClicked, this, [this]() {
+         this->split_->addSibling();
+     });
+@@ -1035,6 +1052,32 @@ void SplitHeader::updatePinButton()
+     }
+ }
+ 
++void SplitHeader::updateAnonButton()
++{
++    if (this->anonButton_ == nullptr)
++    {
++        return;
++    }
++    const bool anon = this->split_->isPhoneAnonymous();
++    // State is visible at a glance: ON shows "Anon ON" with an accent
++    // border, OFF shows plain "Anon" with no border.
++    this->anonButton_->setText(anon ? QStringLiteral("Anon ON")
++                                    : QStringLiteral("Anon"));
++    this->anonButton_->setBorderColor(
++        anon ? this->theme->accent : QColor());
++    this->anonButton_->setToolTip(
++        anon
++            ? QStringLiteral(
++                  "Anonymous mode ON for this chat only - view only, you "
++                  "cannot type as your account here. Tap to turn it off "
++                  "and go back to your connected account. Other chats "
++                  "are not affected.")
++            : QStringLiteral(
++                  "Anonymous mode for this chat only - tap to watch this "
++                  "chat without typing as your account. Other chats are "
++                  "not affected."));
++}
++
+ void SplitHeader::updateChannelText()
+ {
+     auto indirectChannel = this->split_->getIndirectChannel();
+@@ -1155,6 +1198,7 @@ void SplitHeader::updateChannelText()
+ 
+ void SplitHeader::updateIcons()
+ {
++    this->updateAnonButton();
+     auto channel = this->split_->getSelectedChannel();
+ 
+     if (channel->isTwitchOrKickChannel())
+diff --git a/src/widgets/splits/SplitHeader.hpp b/src/widgets/splits/SplitHeader.hpp
+index ec35721..963cca6 100644
+--- a/src/widgets/splits/SplitHeader.hpp
++++ b/src/widgets/splits/SplitHeader.hpp
+@@ -37,6 +37,10 @@ public:
+     void updateChannelText();
+     void updateIcons();
+     void updatePinButton();
++
++    // Phone device styles: refresh the per-chat anonymous button's
++    // text / border / tooltip from the split's current state.
++    void updateAnonButton();
+     // Invoked when SplitHeader should update anything refering to a TwitchChannel's mode
+     // has changed (e.g. sub mode toggled)
+     void updateRoomModes();
+@@ -88,6 +92,11 @@ private:
+ 
+     SvgButton *pinButton_{};
+ 
++    // Phone device styles: per-chat anonymous-mode button. One per
++    // split, in this split's header - tapping it only ever affects
++    // this split's chat, never any other chat.
++    LabelButton *anonButton_{};
++
+     SvgButton *moderationButton_{};
+     SvgButton *chattersButton_{};
+     DrawnButton *addButton_{};

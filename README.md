@@ -56,6 +56,57 @@ on restart, colours/theme/bubbles switch live.
   Settings → Appearance → Themes for the light/dark version of the iPhone
   look.
 
+## Per-chat anonymous mode (Anon button)
+
+**Every chat has its own Anon button**, in that chat's header bar (next to
+the pinned-message / chatters / menu buttons, under the phone status bar).
+
+- Tap it once: **anonymous mode ON for that chat only**. Tap it again: OFF
+  for that chat only.
+- It **never affects any other chat**: other chats keep their normal
+  connected account and keep working as usual. There is no global switch
+  here at all.
+- **What ON does for that chat:** the chat becomes view-only — the typing
+  box is disabled (placeholder "Anonymous mode — view only"), so nothing
+  can be typed or sent as your account from that chat. And because no
+  account counts as connected for that chat, **nobody goes on the right**:
+  every message in it stays on the left, like the logged-out rule.
+- **What OFF does:** the typing box comes back, the placeholder goes back
+  to "Send message as …", and your connected account's messages go on the
+  right again in that chat.
+- **You can see the state at a glance:** OFF shows plain **"Anon"**;
+  ON shows **"Anon ON"** with an accent-coloured border around the button.
+  The tooltip also says which state it is in.
+- **State is per split, in memory only.** Closing that chat drops it — a
+  reopened chat starts with anonymous OFF. Switching the same split to a
+  different channel also turns it off (a reconnect to the same channel
+  keeps it).
+
+### Why it exists: banned chats
+
+If you are **banned in a chat**, that chat sits blank when viewed as your
+connected account — Twitch does not deliver that channel's messages to
+your banned account. Anonymous mode fixes that: it is **not just hiding
+the typing box**. Tapping Anon on a banned chat **reloads that chat as an
+anonymous viewer**:
+
+- The chat is parked off the normal (authenticated) read connection and
+  joined on a dedicated anonymous connection (the `justinfan` anonymous
+  login, no account at all). The same channel keeps receiving messages —
+  only which connection delivers them changes — so the messages flow in
+  and the chat is no longer blank, view-only.
+- Tapping Anon off joins the chat back on the normal connection, on your
+  connected account.
+- Only that chat reloads and changes; every other chat is untouched, and
+  the anonymous connection survives account switches and reconnects of
+  the normal pool.
+- **Kick needs no reload:** Kick's chat feed is public and never uses
+  your login to receive messages, so a Kick ban never blanked the chat
+  in the first place — on Kick the button just makes the chat view-only
+  (and a ban there only ever added a timeout notice).
+- A system message marks the switch in the chat itself: "Viewing this
+  chat anonymously" on, "Back on your connected account" off.
+
 ## Messaging look — normal Chatterino, laid out like a messaging app
 
 Tapping an app icon on the home screen opens that chat in **normal
@@ -131,8 +182,19 @@ moderation or emote-provider code is changed.
 ## Files
 
 - `fold-iphone.patch` — the whole change, as a diff against clean
-  Chatterino7 `910b01d` (2,437 lines, 26 files). Apply with
+  Chatterino7 `910b01d` (3,462 lines, 41 files). Apply with
   `git apply fold-iphone.patch`.
+- The per-chat anonymous button is in `SplitHeader` ("Anon" / "Anon ON"),
+  the per-split state lives on `Split` (`isPhoneAnonymous` /
+  `setPhoneAnonymous`, in memory only), and the layout/paint code threads
+  it through `MessageLayoutContext.phoneAnonymous` from `ChannelView`,
+  so an anonymous split shows everybody on the left. The anonymous
+  reload lives in the Twitch provider: `TwitchIrcServer::
+  setChannelAnonymousRead` moves one channel between the normal read
+  pool and a dedicated anonymous read pool (`TwitchReadConnectionPool`
+  with `forceAnonymousRead`, `joinChannel` / `partChannel` per pool),
+  and `IrcMessageHandler` skips the "unexpectedly dropped" message for
+  the park PART itself.
 - `build-fold-iphone.yml` — GitHub Actions workflow: Qt 6.9.3 / MSVC2022 /
   Conan 2.11.0 / Ninja, uploads `Chatterino7FoldiPhone.zip` and
   `Chatterino7FoldiPhone.exe`.
@@ -165,3 +227,28 @@ moderation or emote-provider code is changed.
 - The lock screen and home screen are compile-checked by patch review
   only (no Qt toolchain on this machine); the first real check is the
   Windows GitHub Actions build, then a live run.
+- **Per-chat anonymous is view-only for that one split, not a real
+  account switch.** Chatterino's Anonymous account is global — switching
+  it would change every chat at once, which is exactly what this button
+  must not do — so instead the button disables that one split's typing
+  box and treats its messages as anonymous (nobody on the right), and
+  for Twitch it moves that one channel's *reading* to a dedicated
+  anonymous connection. Your connected account stays logged in
+  everywhere else. Moderator tools reached from that chat's message
+  menu still act as the connected account, as in plain Chatterino; the
+  block covers typing/sending in that chat.
+- **Anonymous viewing cannot get past a chat that requires login to
+  view.** A plain ban is fixed by it, but a subscriber-only or
+  followers-only chat still shows nothing to an anonymous viewer —
+  Twitch only sends those messages to logged-in subscribers/followers.
+  (Subscriber-only / followers-only room modes are enforced by Twitch
+  per viewer, not per ban.)
+- While a chat is anonymous, Twitch thinks the viewer is `justinfan`,
+  so that chat briefly forgets you are a mod/VIP there (the anonymous
+  connection's USERSTATE carries no badges). Toggling Anon off re-joins
+  on your account and Twitch sends your real status again.
+- Two splits showing the *same* channel share that channel's read
+  connection: if one of them is closed while anonymous, the other split
+  keeps reading anonymously until it toggles Anon off (or the channel
+  is closed everywhere, which clears the state). The button, input and
+  bubbles always follow the split you are looking at.
