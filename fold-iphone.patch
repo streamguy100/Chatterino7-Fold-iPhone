@@ -1,0 +1,1259 @@
+diff --git a/resources/themes/GalaxyFold.json b/resources/themes/GalaxyFold.json
+new file mode 100644
+index 000000000..6005c6224
+--- /dev/null
++++ b/resources/themes/GalaxyFold.json
+@@ -0,0 +1,133 @@
++{
++  "$schema": "../../docs/ChatterinoTheme.schema.json",
++  "metadata": {
++    "iconTheme": "light"
++  },
++  "colors": {
++    "accent": "#0381fe",
++    "messages": {
++      "backgrounds": {
++        "alternate": "#1b1d21",
++        "regular": "#121417"
++      },
++      "disabled": "#99191919",
++      "highlightAnimationEnd": "#00e6e6e6",
++      "highlightAnimationStart": "#6ee6e6e6",
++      "selection": "#40ffffff",
++      "textColors": {
++        "caret": "#ffffff",
++        "chatPlaceholder": "#5d5555",
++        "link": "#0381fe",
++        "regular": "#ffffff",
++        "system": "#8c7f7f"
++      }
++    },
++    "overlayMessages": {
++      "backgrounds": {
++        "alternate": "#32000000",
++        "regular": "transparent"
++      },
++      "disabled": "#64000000",
++      "selection": "#40ffffff",
++      "textColors": {
++        "caret": "#ffffff",
++        "chatPlaceholder": "#5d5555",
++        "link": "#4da3ff",
++        "regular": "#ffffff",
++        "system": "#8c7f7f"
++      },
++      "background": "#121417"
++    },
++    "scrollbars": {
++      "background": "#00000000",
++      "thumb": "#3a3f47",
++      "thumbSelected": "#3a3f47"
++    },
++    "splits": {
++      "background": "#121417",
++      "dropPreview": "#300094ff",
++      "dropPreviewBorder": "#0094ff",
++      "dropTargetRect": "#000094ff",
++      "dropTargetRectBorder": "#000094ff",
++      "header": {
++        "background": "#1b1d21",
++        "border": "#2c2f35",
++        "focusedBackground": "#26292f",
++        "focusedBorder": "#3a3f47",
++        "focusedText": "#7ab8ff",
++        "text": "#ffffff"
++      },
++      "input": {
++        "background": "#1b1d21",
++        "backgroundPulse": "#1e3a5f",
++        "searchFailText": "#ff0000",
++        "searchHighlightBackground": "#506e6eff",
++        "text": "#ffffff"
++      },
++      "messageSeperator": "#3c3c3c",
++      "resizeHandle": "#700094ff",
++      "resizeHandleBackground": "#200094ff"
++    },
++    "tabs": {
++      "liveIndicator": "#ff0000",
++      "rerunIndicator": "#c7c715",
++      "dividerLine": "#555555",
++      "highlighted": {
++        "backgrounds": {
++          "hover": "#252525",
++          "regular": "#252525",
++          "unfocused": "#252525"
++        },
++        "line": {
++          "hover": "#0381fe",
++          "regular": "#0381fe",
++          "unfocused": "#0381fe"
++        },
++        "text": "#eeeeee"
++      },
++      "newMessage": {
++        "backgrounds": {
++          "hover": "#252525",
++          "regular": "#252525",
++          "unfocused": "#252525"
++        },
++        "line": {
++          "hover": "#888888",
++          "regular": "#888888",
++          "unfocused": "#888888"
++        },
++        "text": "#eeeeee"
++      },
++      "regular": {
++        "backgrounds": {
++          "hover": "#252525",
++          "regular": "#252525",
++          "unfocused": "#252525"
++        },
++        "line": {
++          "hover": "#444444",
++          "regular": "#444444",
++          "unfocused": "#444444"
++        },
++        "text": "#b8bcc4"
++      },
++      "selected": {
++        "backgrounds": {
++          "hover": "#26292f",
++          "regular": "#26292f",
++          "unfocused": "#26292f"
++        },
++        "line": {
++          "hover": "#0381fe",
++          "regular": "#0381fe",
++          "unfocused": "#0381fe"
++        },
++        "text": "#ffffff"
++      }
++    },
++    "window": {
++      "background": "#121417",
++      "text": "#eeeeee"
++    }
++  }
++}
+diff --git a/resources/themes/iPhoneDark.json b/resources/themes/iPhoneDark.json
+new file mode 100644
+index 000000000..1cecb97be
+--- /dev/null
++++ b/resources/themes/iPhoneDark.json
+@@ -0,0 +1,131 @@
++{
++  "$schema": "../../docs/ChatterinoTheme.schema.json",
++  "metadata": {
++    "iconTheme": "light"
++  },
++  "colors": {
++    "accent": "#0a84ff",
++    "messages": {
++      "backgrounds": {
++        "alternate": "#2c2c2e",
++        "regular": "#1c1c1e"
++      },
++      "disabled": "#99191919",
++      "highlightAnimationEnd": "#00e6e6e6",
++      "highlightAnimationStart": "#6ee6e6e6",
++      "selection": "#40ffffff",
++      "textColors": {
++        "caret": "#ffffff",
++        "chatPlaceholder": "#5d5555",
++        "link": "#0a84ff",
++        "regular": "#ffffff",
++        "system": "#8c7f7f"
++      }
++    },
++    "overlayMessages": {
++      "backgrounds": {
++        "alternate": "#32000000",
++        "regular": "transparent"
++      },
++      "disabled": "#64000000",
++      "selection": "#40ffffff",
++      "textColors": {
++        "caret": "#ffffff",
++        "chatPlaceholder": "#5d5555",
++        "link": "#4286f4",
++        "regular": "#ffffff",
++        "system": "#8c7f7f"
++      },
++      "background": "#000"
++    },
++    "scrollbars": {
++      "background": "#00000000",
++      "thumb": "#575757",
++      "thumbSelected": "#616161"
++    },
++    "splits": {
++      "background": "#000000",
++      "dropPreview": "#300094ff",
++      "dropPreviewBorder": "#0094ff",
++      "dropTargetRect": "#000094ff",
++      "dropTargetRectBorder": "#000094ff",
++      "header": {
++        "background": "#1c1c1e",
++        "border": "#383838",
++        "focusedBackground": "#444444",
++        "focusedBorder": "#464646",
++        "focusedText": "#84c1ff",
++        "text": "#ffffff"
++      },
++      "input": {
++        "background": "#1c1c1e",
++        "backgroundPulse": "#245424",
++        "text": "#ffffff"
++      },
++      "messageSeperator": "#3c3c3c",
++      "resizeHandle": "#700094ff",
++      "resizeHandleBackground": "#200094ff"
++    },
++    "tabs": {
++      "liveIndicator": "#ff0000",
++      "rerunIndicator": "#c7c715",
++      "dividerLine": "#555555",
++      "highlighted": {
++        "backgrounds": {
++          "hover": "#252525",
++          "regular": "#252525",
++          "unfocused": "#252525"
++        },
++        "line": {
++          "hover": "#ee6166",
++          "regular": "#ee6166",
++          "unfocused": "#ee6166"
++        },
++        "text": "#eeeeee"
++      },
++      "newMessage": {
++        "backgrounds": {
++          "hover": "#252525",
++          "regular": "#252525",
++          "unfocused": "#252525"
++        },
++        "line": {
++          "hover": "#888888",
++          "regular": "#888888",
++          "unfocused": "#888888"
++        },
++        "text": "#eeeeee"
++      },
++      "regular": {
++        "backgrounds": {
++          "hover": "#252525",
++          "regular": "#252525",
++          "unfocused": "#252525"
++        },
++        "line": {
++          "hover": "#444444",
++          "regular": "#444444",
++          "unfocused": "#444444"
++        },
++        "text": "#aaaaaa"
++      },
++      "selected": {
++        "backgrounds": {
++          "hover": "#555555",
++          "regular": "#555555",
++          "unfocused": "#555555"
++        },
++        "line": {
++          "hover": "#00aeef",
++          "regular": "#00aeef",
++          "unfocused": "#00aeef"
++        },
++        "text": "#ffffff"
++      }
++    },
++    "window": {
++      "background": "#111111",
++      "text": "#eeeeee"
++    }
++  }
++}
+diff --git a/resources/themes/iPhoneLight.json b/resources/themes/iPhoneLight.json
+new file mode 100644
+index 000000000..b615b02a9
+--- /dev/null
++++ b/resources/themes/iPhoneLight.json
+@@ -0,0 +1,131 @@
++{
++  "$schema": "../../docs/ChatterinoTheme.schema.json",
++  "metadata": {
++    "iconTheme": "dark"
++  },
++  "colors": {
++    "accent": "#0a84ff",
++    "messages": {
++      "backgrounds": {
++        "alternate": "#f2f2f7",
++        "regular": "#ffffff"
++      },
++      "disabled": "#99e6e6e6",
++      "highlightAnimationEnd": "#00141414",
++      "highlightAnimationStart": "#6e141414",
++      "selection": "#40000000",
++      "textColors": {
++        "caret": "#000000",
++        "chatPlaceholder": "#af9f9f",
++        "link": "#0a84ff",
++        "regular": "#000000",
++        "system": "#8c7f7f"
++      }
++    },
++    "overlayMessages": {
++      "backgrounds": {
++        "alternate": "#32000000",
++        "regular": "transparent"
++      },
++      "disabled": "#64000000",
++      "selection": "#40ffffff",
++      "textColors": {
++        "caret": "#ffffff",
++        "chatPlaceholder": "#5d5555",
++        "link": "#4286f4",
++        "regular": "#ffffff",
++        "system": "#8c7f7f"
++      },
++      "background": "#333"
++    },
++    "scrollbars": {
++      "background": "#00000000",
++      "thumb": "#a8a8a8",
++      "thumbSelected": "#9e9e9e"
++    },
++    "splits": {
++      "background": "#f2f2f7",
++      "dropPreview": "#300094ff",
++      "dropPreviewBorder": "#0094ff",
++      "dropTargetRect": "#00ffffff",
++      "dropTargetRectBorder": "#000094ff",
++      "header": {
++        "background": "#ffffff",
++        "border": "#e6e6e6",
++        "focusedBackground": "#dbdbdb",
++        "focusedBorder": "#d1d1d1",
++        "focusedText": "#0051a3",
++        "text": "#000000"
++      },
++      "input": {
++        "background": "#ffffff",
++        "backgroundPulse": "#dbffdb",
++        "text": "#000000"
++      },
++      "messageSeperator": "#7f7f7f",
++      "resizeHandle": "#0094ff",
++      "resizeHandleBackground": "#500094ff"
++    },
++    "tabs": {
++      "liveIndicator": "#ff0000",
++      "rerunIndicator": "#c7c715",
++      "dividerLine": "#b4d7ff",
++      "highlighted": {
++        "backgrounds": {
++          "hover": "#eeeeee",
++          "regular": "#ffffff",
++          "unfocused": "#ffffff"
++        },
++        "line": {
++          "hover": "#ff0000",
++          "regular": "#ff0000",
++          "unfocused": "#ff0000"
++        },
++        "text": "#000000"
++      },
++      "newMessage": {
++        "backgrounds": {
++          "hover": "#eeeeee",
++          "regular": "#ffffff",
++          "unfocused": "#ffffff"
++        },
++        "line": {
++          "hover": "#bbbbbb",
++          "regular": "#bbbbbb",
++          "unfocused": "#bbbbbb"
++        },
++        "text": "#222222"
++      },
++      "regular": {
++        "backgrounds": {
++          "hover": "#eeeeee",
++          "regular": "#ffffff",
++          "unfocused": "#ffffff"
++        },
++        "line": {
++          "hover": "#ffffff",
++          "regular": "#ffffff",
++          "unfocused": "#ffffff"
++        },
++        "text": "#444444"
++      },
++      "selected": {
++        "backgrounds": {
++          "hover": "#b4d7ff",
++          "regular": "#b4d7ff",
++          "unfocused": "#b4d7ff"
++        },
++        "line": {
++          "hover": "#00aeef",
++          "regular": "#00aeef",
++          "unfocused": "#00aeef"
++        },
++        "text": "#000000"
++      }
++    },
++    "window": {
++      "background": "#f2f2f7",
++      "text": "#000000"
++    }
++  }
++}
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 40ebbad7e..355a05613 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -759,6 +759,8 @@ set(SOURCE_FILES
+         widgets/OverlayWindow.hpp
+         widgets/PluginRepl.cpp
+         widgets/PluginRepl.hpp
++        widgets/DevicePhone.cpp
++        widgets/DevicePhone.hpp
+         widgets/Scrollbar.cpp
+         widgets/Scrollbar.hpp
+         widgets/TooltipEntryWidget.cpp
+@@ -933,6 +935,8 @@ set(SOURCE_FILES
+         widgets/settingspages/CommandPage.cpp
+         widgets/settingspages/CommandPage.hpp
+         widgets/settingspages/CustomWidgets.hpp
++        widgets/settingspages/DeviceStylePage.cpp
++        widgets/settingspages/DeviceStylePage.hpp
+         widgets/settingspages/ExternalToolsPage.cpp
+         widgets/settingspages/ExternalToolsPage.hpp
+         widgets/settingspages/FiltersPage.cpp
+diff --git a/src/messages/MessageFlag.hpp b/src/messages/MessageFlag.hpp
+index fee5998a6..c347d4bc5 100644
+--- a/src/messages/MessageFlag.hpp
++++ b/src/messages/MessageFlag.hpp
+@@ -82,6 +82,13 @@ enum class MessageFlag : std::int64_t {
+     UncategorizedNotification = (1LL << 45),
+     /// The message was detected as ASCII art and has its layout width limited to the default web chat width.
+     AsciiArt = (1LL << 46),
++    /// Phone device styles only: this message was sent by the currently
++    /// logged-in Twitch or Kick account, so its lines are right-aligned
++    /// in the chat row. Layout-only: set on a *copy* of the message
++    /// flags in MessageLayout::actuallyLayout, never written back to
++    /// Message::flags, never persisted, never used for moderation,
++    /// highlights, or protocol decisions.
++    PhoneOwnMessage = (1LL << 47),
+ };
+ using MessageFlags = FlagsEnum<MessageFlag>;
+ 
+diff --git a/src/messages/layouts/MessageLayout.cpp b/src/messages/layouts/MessageLayout.cpp
+index b753bd9e9..732f2ab76 100644
+--- a/src/messages/layouts/MessageLayout.cpp
++++ b/src/messages/layouts/MessageLayout.cpp
+@@ -5,7 +5,10 @@
+ #include "messages/layouts/MessageLayout.hpp"
+ 
+ #include "Application.hpp"
++#include "controllers/accounts/AccountController.hpp"
+ #include "controllers/highlights/types/AutomodCaughtHighlight.hpp"
++#include "providers/kick/KickAccount.hpp"
++#include "providers/twitch/TwitchAccount.hpp"
+ #include "messages/layouts/MessageLayoutContainer.hpp"
+ #include "messages/layouts/MessageLayoutContext.hpp"
+ #include "messages/layouts/MessageLayoutElement.hpp"
+@@ -21,6 +24,7 @@
+ #include <QApplication>
+ #include <QDebug>
+ #include <QPainter>
++#include <QPainterPath>
+ #include <QtGlobal>
+ #include <QThread>
+ 
+@@ -37,6 +41,98 @@ QColor blendColors(const QColor &base, const QColor &apply)
+                    base.blueF() * (1 - alpha) + apply.blueF() * alpha);
+     return result;
+ }
++
++// ---------------------------------------------------------------------------
++// Phone device styles (Galaxy Fold / iPhone, style only).
++// Used only when a phone device style is active (both built-in styles
++// are phone styles). They never touch channels, protocols, moderation,
++// or emote providers. The platform outline is purple for Twitch
++// (145, 70, 255) and green for Kick (83, 252, 24).
++// ---------------------------------------------------------------------------
++
++bool phoneStyleEnabled()
++{
++    // Both device styles are phone styles; deviceStyle only ever holds
++    // "GalaxyFold" or "iPhone".
++    return !getSettings()->deviceStyle.getValue().isEmpty();
++}
++
++bool phoneIsFold()
++{
++    return getSettings()->deviceStyle.getValue() == "GalaxyFold";
++}
++
++/// True when this message was sent by the currently logged-in account, on
++/// either platform. Twitch and Kick accounts are checked independently, so
++/// a user logged in as official_robust_clan on both is "own" on both.
++/// Anonymous accounts never match: an empty login name is not own.
++bool phoneIsOwnMessage(const Message &message)
++{
++    if (message.loginName.isEmpty())
++    {
++        return false;
++    }
++    auto *accounts = getApp()->getAccounts();
++    if (accounts == nullptr)
++    {
++        return false;
++    }
++    if (auto twitch = accounts->twitch.getCurrent(); twitch != nullptr &&
++        !twitch->isAnon() &&
++        twitch->getUserName().compare(message.loginName,
++                                      Qt::CaseInsensitive) == 0)
++    {
++        return true;
++    }
++    if (auto kick = accounts->kick.current(); kick != nullptr &&
++        !kick->isAnonymous() &&
++        kick->username().compare(message.loginName, Qt::CaseInsensitive) ==
++            0)
++    {
++        return true;
++    }
++    return false;
++}
++
++QString phoneDisplayName(const Message &message)
++{
++    return message.displayName.isEmpty() ? message.loginName
++                                         : message.displayName;
++}
++
++/// The single initial painted in the avatar circle for received messages.
++/// Initials only: Qt chat rows carry no per-message profile photo.
++QChar phoneAvatarInitial(const Message &message)
++{
++    const QString name = phoneDisplayName(message);
++    return name.isEmpty() ? QChar('?') : name.at(0).toUpper();
++}
++
++QColor phoneOutlineColor(const Message &message)
++{
++    return message.platform == MessagePlatform::Kick
++               ? QColor(83, 252, 24)
++               : QColor(145, 70, 255);
++}
++
++/// Bubble fill for phone styles. Sent messages use the phone's message
++/// blue (Samsung blue on Fold, iOS blue on iPhone); received messages
++/// use the system grey for the current theme, inferred from the chat
++/// text colour (dark text = light theme). Highlighted messages keep
++/// their highlight colour as the fill instead; see updateBuffer.
++QColor phoneBubbleFill(const QColor &textColor, bool isOwn, bool isFold)
++{
++    if (isOwn)
++    {
++        return isFold ? QColor("#0381fe") : QColor("#0a84ff");
++    }
++    const bool lightTheme = textColor.lightness() < 128;
++    if (lightTheme)
++    {
++        return isFold ? QColor("#e8e8ed") : QColor("#e9e9eb");
++    }
++    return QColor("#2c2c2e");
++}
+ }  // namespace
+ 
+ MessageLayout::MessageLayout(MessagePtr message)
+@@ -137,6 +233,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+ 
+     auto messageFlags = this->message_->flags;
+ 
++    // Phone device styles (layout-only): mark own messages on this local
++    // copy only, so MessageLayoutContainer can right-align their lines.
++    // this->message_->flags itself is never modified here.
++    if (phoneStyleEnabled() && phoneIsOwnMessage(*this->message_))
++    {
++        messageFlags.set(MessageFlag::PhoneOwnMessage);
++    }
++
+     if (this->flags.has(MessageLayoutFlag::Expanded) ||
+         (ctx.flags.has(MessageElementFlag::ModeratorTools) &&
+          !this->message_->flags.has(MessageFlag::Disabled)))
+@@ -155,6 +259,13 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+     this->container_.beginLayout(ctx.width, this->scale_, this->imageScale_,
+                                  messageFlags);
+ 
++    // Phone styles: once per message, put the username (and any badges
++    // before it) on its own line above the message text, so the name reads
++    // as a label above the bubble instead of inline before the text.
++    // Whisper rows carry two Username elements and still break after the
++    // first one; that is a known, cosmetic edge case of this style.
++    bool phoneUsernameLineBroken = false;
++
+     for (const auto &element : this->message_->elements)
+     {
+         if (hideModerated && this->message_->flags.has(MessageFlag::Disabled))
+@@ -205,6 +316,14 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
+         }
+ 
+         element->addToContainer(this->container_, ctx);
++
++        if (phoneStyleEnabled() && !phoneUsernameLineBroken &&
++            element->getFlags().has(MessageElementFlag::Username) &&
++            !this->message_->flags.has(MessageFlag::System))
++        {
++            this->container_.breakLine();
++            phoneUsernameLineBroken = true;
++        }
+     }
+ 
+     if (this->height_ != this->container_.getHeight())
+@@ -390,7 +509,77 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
+         backgroundColor = QColor("#4A273D");
+     }
+ 
+-    painter.fillRect(buffer->rect(), backgroundColor);
++    // Phone device styles (style only): paint the row as a rounded
++    // bubble with a platform-coloured outline, instead of the normal
++    // full-width row fill. Qt chat rows are full-width, so this is a
++    // *row* bubble, not a content-tight phone bubble: long messages
++    // still wrap at full row width, and own messages are right-aligned
++    // per line by MessageLayoutContainer. System messages and messages
++    // without a sender keep the normal background below. The bubble is
++    // painted here, before the elements are painted on top of it, so the
++    // avatar circle below must line up with the avatar indent added for
++    // received lines in MessageLayoutContainer::breakLine.
++    if (phoneStyleEnabled() && !this->message_->loginName.isEmpty() &&
++        !this->message_->flags.has(MessageFlag::System))
++    {
++        painter.fillRect(buffer->rect(), backgroundColor);
++
++        const qreal s = this->scale_ > 0 ? this->scale_ : 1;
++        const bool isOwn = phoneIsOwnMessage(*this->message_);
++        const bool isFold = phoneIsFold();
++        const QColor outline = phoneOutlineColor(*this->message_);
++        QColor fill =
++            phoneBubbleFill(ctx.messageColors.regularText, isOwn, isFold);
++        if (this->message_->flags.has(MessageFlag::Highlighted) &&
++            this->message_->highlightColor &&
++            this->message_->highlightColor->isValid())
++        {
++            fill = *this->message_->highlightColor;
++        }
++
++        painter.save();
++        painter.setRenderHint(QPainter::Antialiasing, true);
++        // Received bubbles start after the avatar circle (when avatars
++        // are on), so the avatar sits outside the bubble; sent bubbles
++        // use the normal inset on both sides.
++        const bool showAvatar =
++            !isOwn && getSettings()->phoneMessageShowAvatars.getValue();
++        const qreal bubbleLeft = showAvatar ? 32 * s : 6 * s;
++        const QRectF bubble(
++            buffer->rect().left() + bubbleLeft, buffer->rect().top() + 2 * s,
++            buffer->rect().width() - bubbleLeft - 6 * s,
++            buffer->rect().height() - 4 * s);
++        QPainterPath path;
++        path.addRoundedRect(bubble, 14 * s, 14 * s);
++        painter.setPen(QPen(outline, 2 * s));
++        painter.setBrush(fill);
++        painter.drawPath(path);
++
++        // Received messages only: sender initial in a small circle at the
++        // left of the row, next to where the username line starts.
++        if (showAvatar)
++        {
++            const qreal diameter = 24 * s;
++            const QRectF avatar(buffer->rect().left() + 4 * s,
++                                buffer->rect().top() + 4 * s, diameter,
++                                diameter);
++            painter.setPen(QPen(outline, 1 * s));
++            painter.setBrush(outline);
++            painter.drawEllipse(avatar);
++            painter.setPen(ctx.messageColors.regularText);
++            QFont font = painter.font();
++            font.setBold(true);
++            font.setPointSizeF(font.pointSizeF() * 0.9);
++            painter.setFont(font);
++            painter.drawText(avatar, Qt::AlignCenter,
++                             QString(phoneAvatarInitial(*this->message_)));
++        }
++        painter.restore();
++    }
++    else
++    {
++        painter.fillRect(buffer->rect(), backgroundColor);
++    }
+ 
+     // draw message
+     this->container_.paintElements(painter, ctx);
+diff --git a/src/messages/layouts/MessageLayoutContainer.cpp b/src/messages/layouts/MessageLayoutContainer.cpp
+index 79fa5135a..d58ca142d 100644
+--- a/src/messages/layouts/MessageLayoutContainer.cpp
++++ b/src/messages/layouts/MessageLayoutContainer.cpp
+@@ -183,6 +183,34 @@ void MessageLayoutContainer::breakLine()
+                        .right()) /
+                   2;
+     }
++    // Phone device styles (layout only, no protocol or data change):
++    // - Own messages: right-align each line, like a sent phone message.
++    //   This is the same arithmetic as Centered above, without the /2,
++    //   and it relies on PhoneOwnMessage being set on the layout copy
++    //   of the flags in MessageLayout::actuallyLayout, never on the
++    //   message.
++    // - Received messages: indent each line by the avatar circle width
++    //   plus a gap, so the avatar painted in MessageLayout::updateBuffer
++    //   sits to the left of the username and message text.
++    // Both branches are skipped entirely when no phone style is active.
++    else if (!getSettings()->deviceStyle.getValue().isEmpty() &&
++             this->elements_.size() > 0)
++    {
++        if (this->flags_.has(MessageFlag::PhoneOwnMessage))
++        {
++            const int marginOffset = int(MARGIN.left() * this->scale_) +
++                                     int(MARGIN.right() * this->scale_);
++            xOffset = this->width_ - marginOffset -
++                      this->elements_.at(this->elements_.size() - 1)
++                          ->getRect()
++                          .right();
++        }
++        else if (getSettings()->phoneMessageShowAvatars.getValue())
++        {
++            // 24px avatar circle + 8px gap, matching updateBuffer.
++            xOffset = 32 * this->scale_;
++        }
++    }
+ 
+     for (size_t i = this->lineStart_; i < this->elements_.size(); i++)
+     {
+diff --git a/src/singletons/Settings.hpp b/src/singletons/Settings.hpp
+index afb026620..7c9c3290e 100644
+--- a/src/singletons/Settings.hpp
++++ b/src/singletons/Settings.hpp
+@@ -246,6 +246,12 @@ public:
+     FloatSetting twitchGifScale = {"/appearance/messages/twitchGifScale", 1.F};
+     BoolSetting separateMessages = {"/appearance/messages/separateMessages",
+                                     false};
++    // Phone device styles (Galaxy Fold / iPhone, style only): reserve
++    // space at the left of received messages and paint the sender's
++    // initial in a small circle next to their name. Initials only:
++    // Qt chat rows carry no per-message profile photo.
++    BoolSetting phoneMessageShowAvatars = {
++        "/appearance/messages/phoneMessageShowAvatars", true};
+     BoolSetting fadeMessageHistory = {"/appearance/messages/fadeMessageHistory",
+                                       true};
+     BoolSetting hideModerated = {"/appearance/messages/hideModerated", false};
+@@ -261,6 +267,11 @@ public:
+ 
+     EnumSetting<NotebookTabLocation> tabDirection = {"/appearance/tabDirection",
+                                                      NotebookTabLocation::Top};
++    // Phone device style (style only): "GalaxyFold" (default, Samsung
++    // One UI) or "iPhone" (iOS Messages). Picked in Settings ->
++    // Device Style; applyDeviceStyle() in widgets/DevicePhone.cpp
++    // switches the theme, the tab bar and the bubbles with it.
++    QStringSetting deviceStyle = {"/appearance/deviceStyle", "GalaxyFold"};
+     EnumSetting<NotebookTabVisibility> tabVisibility = {
+         "/appearance/tabVisibility",
+         NotebookTabVisibility::AllTabs,
+diff --git a/src/singletons/Theme.cpp b/src/singletons/Theme.cpp
+index 3e499b9f2..878a1f671 100644
+--- a/src/singletons/Theme.cpp
++++ b/src/singletons/Theme.cpp
+@@ -294,6 +294,24 @@ const std::vector<ThemeDescriptor> Theme::builtInThemes{
+         .path = ":/themes/Dark.json",
+         .name = "Dark",
+     },
++    // Phone device styles. Inserted after Dark on purpose: fallbackTheme
++    // is builtInThemes.at(2) (Dark), and inserting before it would
++    // silently change the fallback.
++    {
++        .key = "GalaxyFold",
++        .path = ":/themes/GalaxyFold.json",
++        .name = "Galaxy Fold",
++    },
++    {
++        .key = "iPhoneLight",
++        .path = ":/themes/iPhoneLight.json",
++        .name = "iPhone (Light)",
++    },
++    {
++        .key = "iPhoneDark",
++        .path = ":/themes/iPhoneDark.json",
++        .name = "iPhone (Dark)",
++    },
+     {
+         .key = "Black",
+         .path = ":/themes/Black.json",
+diff --git a/src/singletons/Theme.hpp b/src/singletons/Theme.hpp
+index ddfb34a3a..a0d856af4 100644
+--- a/src/singletons/Theme.hpp
++++ b/src/singletons/Theme.hpp
+@@ -178,7 +178,7 @@ public:
+ 
+     pajlada::Signals::NoArgSignal updated;
+ 
+-    QStringSetting themeName{"/appearance/theme/name", "Dark"};
++    QStringSetting themeName{"/appearance/theme/name", "GalaxyFold"};
+     QStringSetting lightSystemThemeName{"/appearance/theme/lightSystem",
+                                         "Light"};
+     QStringSetting darkSystemThemeName{"/appearance/theme/darkSystem", "Dark"};
+diff --git a/src/singletons/WindowManager.cpp b/src/singletons/WindowManager.cpp
+index a1a2e9f77..f4941e272 100644
+--- a/src/singletons/WindowManager.cpp
++++ b/src/singletons/WindowManager.cpp
+@@ -142,6 +142,7 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
+     qCDebug(chatterinoWindowmanager) << "init WindowManager";
+ 
+     this->updateWordTypeMaskListener.add(settings.showTimestamps);
++    this->updateWordTypeMaskListener.add(settings.deviceStyle);
+     this->updateWordTypeMaskListener.add(settings.showHeaderTimestamps);
+     this->updateWordTypeMaskListener.add(settings.showAnnouncementHeader);
+     this->updateWordTypeMaskListener.add(settings.showSubscriptionHeader);
+@@ -159,6 +160,9 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
+     this->updateWordTypeMaskListener.add(settings.lowercaseDomains);
+     this->updateWordTypeMaskListener.add(settings.showReplyButton);
+ 
++    this->forceLayoutChannelViewsListener.add(settings.deviceStyle);
++    this->forceLayoutChannelViewsListener.add(
++        settings.phoneMessageShowAvatars);
+     this->forceLayoutChannelViewsListener.add(
+         settings.moderationActions.delayedItemsChanged);
+     this->forceLayoutChannelViewsListener.add(
+@@ -221,7 +225,12 @@ void WindowManager::updateWordTypeMask()
+     auto flags = MessageElementFlags(MEF::Text);
+ 
+     // timestamp
+-    if (settings->showTimestamps)
++    // Phone device styles: no timestamps, just bubbles (both the Fold
++    // and the iPhone look). This only removes the Timestamp element
++    // from the layout mask; the underlying parseTime /
++    // serverReceivedTime on each Message is kept untouched.
++    if (settings->showTimestamps &&
++        getSettings()->deviceStyle.getValue().isEmpty())
+     {
+         flags.set(MEF::Timestamp);
+     }
+diff --git a/src/widgets/DevicePhone.cpp b/src/widgets/DevicePhone.cpp
+new file mode 100644
+index 000000000..f7655a17a
+--- /dev/null
++++ b/src/widgets/DevicePhone.cpp
+@@ -0,0 +1,115 @@
++// SPDX-FileCopyrightText: 2026 Contributors to Chatterino <https://chatterino.com>
++//
++// SPDX-License-Identifier: MIT
++
++#include "widgets/DevicePhone.hpp"
++
++#include "singletons/Settings.hpp"
++#include "singletons/Theme.hpp"
++#include "widgets/NotebookEnums.hpp"
++
++#include <QHBoxLayout>
++#include <QTime>
++
++namespace chatterino {
++
++bool deviceStyleIsFold()
++{
++    return getSettings()->deviceStyle.getValue() == "GalaxyFold";
++}
++
++void applyDeviceStyle(const QString &style)
++{
++    auto *settings = getSettings();
++    settings->deviceStyle.setValue(style);
++
++    // Theme switches live (Theme::update runs on the themeName signal).
++    if (style == "iPhone")
++    {
++        getTheme()->themeName.setValue("iPhoneDark");
++    }
++    else
++    {
++        getTheme()->themeName.setValue("GalaxyFold");
++    }
++
++    // Tabs go to the bottom on both phones (Window already listens to
++    // tabDirection and moves the notebook tabs live).
++    settings->tabDirection.setValue(NotebookTabLocation::Bottom);
++}
++
++DevicePhoneBar::DevicePhoneBar(QWidget *parent)
++    : QWidget(parent)
++{
++    auto *layout = new QHBoxLayout(this);
++    layout->setContentsMargins(14, 4, 14, 4);
++    layout->setSpacing(8);
++
++    this->timeLabel_ = new QLabel(this);
++    this->timeLabel_->setStyleSheet("font-size: 14px; font-weight: bold;");
++    layout->addWidget(this->timeLabel_);
++
++    layout->addStretch();
++
++    // The phone's camera: a punch-hole dot on the Fold, a black notch
++    // pill on iPhone. Restyled in updateBar() when the style changes.
++    this->cameraLabel_ = new QLabel(this);
++    layout->addWidget(this->cameraLabel_);
++
++    layout->addStretch();
++
++    this->statusLabel_ = new QLabel(QStringLiteral("5G  100%"), this);
++    this->statusLabel_->setStyleSheet("font-size: 13px; font-weight: bold;");
++    layout->addWidget(this->statusLabel_);
++
++    this->setFixedHeight(36);
++
++    QObject::connect(&this->clockTimer_, &QTimer::timeout, this, [this] {
++        this->timeLabel_->setText(QTime::currentTime().toString("h:mm"));
++    });
++    this->clockTimer_.start(15000);
++    this->timeLabel_->setText(QTime::currentTime().toString("h:mm"));
++
++    getSettings()->deviceStyle.connect(
++        [this](const QString &) {
++            this->updateBar();
++        },
++        this->signalHolder_);
++
++    this->updateBar();
++}
++
++void DevicePhoneBar::updateBar()
++{
++    const bool isFold = deviceStyleIsFold();
++    const bool lightTheme = getTheme()->isLightTheme();
++    const QString textColor = lightTheme ? "#000000" : "#ffffff";
++    const QString barColor =
++        isFold ? "#121417" : (lightTheme ? "#f2f2f7" : "#1c1c1e");
++
++    this->setStyleSheet(QStringLiteral("background-color: %1;").arg(barColor));
++    this->timeLabel_->setStyleSheet(
++        QStringLiteral("color: %1; font-size: 14px; font-weight: bold;")
++            .arg(textColor));
++    this->statusLabel_->setStyleSheet(
++        QStringLiteral("color: %1; font-size: 13px; font-weight: bold;")
++            .arg(textColor));
++
++    if (isFold)
++    {
++        // Samsung Galaxy Fold: punch-hole camera, a small black dot.
++        this->cameraLabel_->setFixedSize(14, 14);
++        this->cameraLabel_->setStyleSheet(
++            "background-color: #000000; border: 1px solid #444444; "
++            "border-radius: 7px;");
++    }
++    else
++    {
++        // iPhone: notch, a black pill.
++        this->cameraLabel_->setFixedSize(92, 22);
++        this->cameraLabel_->setStyleSheet(
++            "background-color: #000000; border-radius: 11px;");
++    }
++}
++
++}  // namespace chatterino
+diff --git a/src/widgets/DevicePhone.hpp b/src/widgets/DevicePhone.hpp
+new file mode 100644
+index 000000000..f281e3db2
+--- /dev/null
++++ b/src/widgets/DevicePhone.hpp
+@@ -0,0 +1,53 @@
++// SPDX-FileCopyrightText: 2026 Contributors to Chatterino <https://chatterino.com>
++//
++// SPDX-License-Identifier: MIT
++
++#pragma once
++
++#include <pajlada/signals/signalholder.hpp>
++
++#include <QLabel>
++#include <QTimer>
++#include <QWidget>
++
++namespace chatterino {
++
++/**
++ * Phone device styles (Galaxy Fold / iPhone, style only).
++ *
++ * The status bar at the top of the main window: live clock on the left,
++ * the phone's camera in the middle (punch-hole dot on the Fold, black
++ * notch pill on iPhone), signal / battery on the right. The clock is
++ * real (the PC clock); battery and signal are drawn icons, not live
++ * hardware readings - a desktop app has no phone battery or signal.
++ */
++class DevicePhoneBar : public QWidget
++{
++    Q_OBJECT
++
++public:
++    explicit DevicePhoneBar(QWidget *parent);
++
++private:
++    void updateBar();
++
++    QLabel *timeLabel_;
++    QLabel *cameraLabel_;
++    QLabel *statusLabel_;
++    QTimer clockTimer_;
++    pajlada::Signals::SignalHolder signalHolder_;
++};
++
++/**
++ * Apply a phone device style, changing the WHOLE app together:
++ * the theme (GalaxyFold / iPhoneDark), the tab bar (bottom, both
++ * phones) and the message bubbles (driven by the deviceStyle setting
++ * in MessageLayout). Colours, theme and bubbles switch live; the
++ * window frame size is applied when the app restarts (see Window).
++ */
++void applyDeviceStyle(const QString &style);
++
++/// True when the picked phone is the Samsung Galaxy Fold.
++bool deviceStyleIsFold();
++
++}  // namespace chatterino
+diff --git a/src/widgets/Window.cpp b/src/widgets/Window.cpp
+index a013e705f..2cf7da2e4 100644
+--- a/src/widgets/Window.cpp
++++ b/src/widgets/Window.cpp
+@@ -4,6 +4,8 @@
+ 
+ #include "widgets/Window.hpp"
+ 
++#include "widgets/DevicePhone.hpp"
++
+ #include "Application.hpp"
+ #include "common/Args.hpp"
+ #include "common/Common.hpp"
+@@ -79,7 +81,17 @@ Window::Window(WindowType type, QWidget *parent)
+ 
+     if (type == WindowType::Main)
+     {
+-        this->resize(int(600 * this->scale()), int(500 * this->scale()));
++        // Phone device styles: the main window opens phone-sized, tall
++        // and narrow, like the picked phone. Fold is slightly wider
++        // than iPhone, like the real cover screens.
++        if (getSettings()->deviceStyle.getValue() == "iPhone")
++        {
++            this->resize(int(400 * this->scale()), int(860 * this->scale()));
++        }
++        else
++        {
++            this->resize(int(430 * this->scale()), int(900 * this->scale()));
++        }
+ #ifdef Q_OS_LINUX
+         if (this->theme->window.background.alpha() != 255)
+         {
+@@ -216,6 +228,15 @@ void Window::addLayout()
+ {
+     auto *layout = new QVBoxLayout();
+ 
++    if (this->type_ == WindowType::Main)
++    {
++        // Phone device styles: status bar + camera at the top of the
++        // main window, above the chats. Popups and attached windows
++        // keep the plain layout.
++        this->devicePhoneBar_ = new DevicePhoneBar(this);
++        layout->addWidget(this->devicePhoneBar_);
++    }
++
+     layout->addWidget(this->notebook_);
+     this->getLayoutContainer()->setLayout(layout);
+ 
+diff --git a/src/widgets/Window.hpp b/src/widgets/Window.hpp
+index 706fbce60..3e2dcd36f 100644
+--- a/src/widgets/Window.hpp
++++ b/src/widgets/Window.hpp
+@@ -17,6 +17,7 @@ class LabelButton;
+ class Theme;
+ class UpdateDialog;
+ class SplitNotebook;
++class DevicePhoneBar;
+ class Channel;
+ 
+ /**
+@@ -58,6 +59,8 @@ private:
+     WindowType type_;
+ 
+     SplitNotebook *notebook_;
++    // Phone device styles, main window only (null on popup windows).
++    DevicePhoneBar *devicePhoneBar_ = nullptr;
+     LabelButton *userLabel_ = nullptr;
+     std::shared_ptr<UpdateDialog> updateDialogHandle_;
+ 
+diff --git a/src/widgets/dialogs/SettingsDialog.cpp b/src/widgets/dialogs/SettingsDialog.cpp
+index 4a8ec6aab..11ed79371 100644
+--- a/src/widgets/dialogs/SettingsDialog.cpp
++++ b/src/widgets/dialogs/SettingsDialog.cpp
+@@ -18,6 +18,7 @@
+ #include "widgets/settingspages/CommandPage.hpp"
+ #include "widgets/settingspages/ExternalToolsPage.hpp"
+ #include "widgets/settingspages/FiltersPage.hpp"
++#include "widgets/settingspages/DeviceStylePage.hpp"
+ #include "widgets/settingspages/GeneralPage.hpp"
+ #include "widgets/settingspages/HighlightingPage.hpp"
+ #include "widgets/settingspages/IgnoresPage.hpp"
+@@ -237,6 +238,7 @@ void SettingsDialog::addTabs()
+ 
+     // clang-format off
+     this->addTab([]{return new GeneralPage;},          "General",        ":/settings/about.svg", SettingsTabId::General);
++    this->addTab([]{return new DeviceStylePage;},     "Device Style",   ":/settings/about.svg");
+     this->ui_.tabContainer->addSpacing(16);
+     this->addTab([]{return new AccountsPage;},         "Accounts",       ":/settings/accounts.svg", SettingsTabId::Accounts);
+     this->addTab([]{return new NicknamesPage;},        "Nicknames",      ":/settings/accounts.svg");
+diff --git a/src/widgets/settingspages/DeviceStylePage.cpp b/src/widgets/settingspages/DeviceStylePage.cpp
+new file mode 100644
+index 000000000..ae0fd1140
+--- /dev/null
++++ b/src/widgets/settingspages/DeviceStylePage.cpp
+@@ -0,0 +1,99 @@
++// SPDX-FileCopyrightText: 2026 Contributors to Chatterino <https://chatterino.com>
++//
++// SPDX-License-Identifier: MIT
++
++#include "widgets/settingspages/DeviceStylePage.hpp"
++
++#include "singletons/Settings.hpp"
++#include "widgets/DevicePhone.hpp"
++
++#include <QButtonGroup>
++#include <QCheckBox>
++#include <QLabel>
++#include <QRadioButton>
++#include <QVBoxLayout>
++
++namespace chatterino {
++
++DeviceStylePage::DeviceStylePage()
++{
++    auto *layout = new QVBoxLayout(this);
++    layout->setContentsMargins(12, 12, 12, 12);
++    layout->setSpacing(10);
++
++    auto *title = new QLabel("Device Style", this);
++    title->setStyleSheet("font-size: 18px; font-weight: bold;");
++    layout->addWidget(title);
++
++    auto *description = new QLabel(
++        "Pick the phone the whole app looks like. The whole app changes "
++        "together: the frame, the status bar and camera at the top, the "
++        "header, the tabs at the bottom, the input at the bottom, the "
++        "colours, the buttons and the chat bubbles. Colours, theme and "
++        "bubbles switch right away. The window frame (tall narrow phone, "
++        "punch-hole or notch) applies when you restart the app.",
++        this);
++    description->setWordWrap(true);
++    layout->addWidget(description);
++
++    auto *group = new QButtonGroup(this);
++
++    this->foldButton_ = new QRadioButton(
++        "Samsung Galaxy Fold — One UI, Samsung blue, punch-hole camera",
++        this);
++    this->foldButton_->setToolTip(
++        "Tall narrow phone frame, One UI dark look, Samsung Messages "
++        "bubbles: blue sent, grey received.");
++    group->addButton(this->foldButton_);
++    layout->addWidget(this->foldButton_);
++
++    this->iphoneButton_ = new QRadioButton(
++        "iPhone — iOS Messages, blue bubbles, notch", this);
++    this->iphoneButton_->setToolTip(
++        "iPhone Messages bubbles: received on the left, your own messages "
++        "on the right, username above the message, no timestamps.");
++    group->addButton(this->iphoneButton_);
++    layout->addWidget(this->iphoneButton_);
++
++    if (deviceStyleIsFold())
++    {
++        this->foldButton_->setChecked(true);
++    }
++    else
++    {
++        this->iphoneButton_->setChecked(true);
++    }
++
++    QObject::connect(this->foldButton_, &QRadioButton::toggled, this,
++                     [](bool checked) {
++                         if (checked)
++                         {
++                             applyDeviceStyle("GalaxyFold");
++                         }
++                     });
++    QObject::connect(this->iphoneButton_, &QRadioButton::toggled, this,
++                     [](bool checked) {
++                         if (checked)
++                         {
++                             applyDeviceStyle("iPhone");
++                         }
++                     });
++
++    this->avatarCheckbox_ = new QCheckBox(
++        "Show avatar initials in phone styles", this);
++    this->avatarCheckbox_->setToolTip(
++        "Paint the sender's initial in a small circle next to received "
++        "messages. Initials only, not a fetched profile photo.");
++    this->avatarCheckbox_->setChecked(
++        getSettings()->phoneMessageShowAvatars.getValue());
++    QObject::connect(this->avatarCheckbox_, &QCheckBox::toggled, this,
++                     [](bool checked) {
++                         getSettings()->phoneMessageShowAvatars.setValue(
++                             checked);
++                     });
++    layout->addWidget(this->avatarCheckbox_);
++
++    layout->addStretch();
++}
++
++}  // namespace chatterino
+diff --git a/src/widgets/settingspages/DeviceStylePage.hpp b/src/widgets/settingspages/DeviceStylePage.hpp
+new file mode 100644
+index 000000000..d23b98101
+--- /dev/null
++++ b/src/widgets/settingspages/DeviceStylePage.hpp
+@@ -0,0 +1,35 @@
++// SPDX-FileCopyrightText: 2026 Contributors to Chatterino <https://chatterino.com>
++//
++// SPDX-License-Identifier: MIT
++
++#pragma once
++
++#include "widgets/settingspages/SettingsPage.hpp"
++
++class QCheckBox;
++class QRadioButton;
++
++namespace chatterino {
++
++/**
++ * Settings -> Device Style: pick the phone the whole app looks like.
++ *
++ * Samsung Galaxy Fold (default) or iPhone. Picking one changes the
++ * whole app together - frame, status bar, header, tabs, input,
++ * colours and bubbles - not just the colours. See applyDeviceStyle()
++ * in widgets/DevicePhone.cpp.
++ */
++class DeviceStylePage : public SettingsPage
++{
++    Q_OBJECT
++
++public:
++    DeviceStylePage();
++
++private:
++    QRadioButton *foldButton_;
++    QRadioButton *iphoneButton_;
++    QCheckBox *avatarCheckbox_;
++};
++
++}  // namespace chatterino
