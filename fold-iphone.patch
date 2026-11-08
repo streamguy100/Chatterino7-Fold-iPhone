@@ -1577,10 +1577,10 @@ index 9721e8b27..639e1483a 100644
       * @brief budget_ denotes the amount of calls that can be handled before we need to wait for the cooldown
 diff --git a/src/widgets/DeviceHomeScreen.cpp b/src/widgets/DeviceHomeScreen.cpp
 new file mode 100644
-index 000000000..6f6787861
+index 000000000..2111eed81
 --- /dev/null
 +++ b/src/widgets/DeviceHomeScreen.cpp
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,228 @@
 +// SPDX-FileCopyrightText: 2026 Contributors to Chatterino <https://chatterino.com>
 +//
 +// SPDX-License-Identifier: MIT
@@ -1591,6 +1591,8 @@ index 000000000..6f6787861
 +#include "singletons/Theme.hpp"
 +#include "widgets/DevicePhone.hpp"
 +#include "widgets/Notebook.hpp"
++#include "widgets/helper/NotebookTab.hpp"
++#include "widgets/splits/SplitContainer.hpp"
 +
 +#include <QGridLayout>
 +#include <QLabel>
@@ -1686,18 +1688,31 @@ index 000000000..6f6787861
 +    int col = 0;
 +    int index = 0;
 +
-+    for (const auto &item : this->notebook_->items())
++    // Public Notebook API only: Notebook::items() is protected, so
++    // list pages with getPageCount()/getPageAt() and get each page's
++    // title from its SplitContainer's tab (both public).
++    for (int i = 0; i < this->notebook_->getPageCount(); i++)
 +    {
-+        if (item.tab == nullptr || item.page == nullptr)
++        QWidget *page = this->notebook_->getPageAt(i);
++        if (page == nullptr)
 +        {
 +            continue;
 +        }
-+        const QString name = item.tab->getTitle();
++        auto *container = dynamic_cast<SplitContainer *>(page);
++        if (container == nullptr)
++        {
++            continue;
++        }
++        NotebookTab *tab = container->getTab();
++        if (tab == nullptr)
++        {
++            continue;
++        }
++        const QString name = tab->getTitle();
 +        if (name.isEmpty())
 +        {
 +            continue;
 +        }
-+        QWidget *page = item.page;
 +
 +        auto *cell = new QWidget(this->gridWidget_);
 +        auto *cellLayout = new QVBoxLayout(cell);
